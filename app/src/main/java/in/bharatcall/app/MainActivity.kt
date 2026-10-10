@@ -50,9 +50,13 @@ class MainActivity : Activity() {
         refreshStatus()
     }
 
-    private fun isDefaultDialer(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+    private fun isDefaultDialer(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_DIALER) == true
+        } else {
+            (getSystemService(Context.TELECOM_SERVICE) as TelecomManager).defaultDialerPackage == packageName
+        }
+    }
 
     private fun refreshStatus() {
         status.text = if (isDefaultDialer()) "BharatCall is the default phone app." else "Set BharatCall as default to handle calls."
@@ -61,8 +65,15 @@ class MainActivity : Activity() {
     private fun requestDialerRole() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val rm = getSystemService(RoleManager::class.java)
-            if (rm.isRoleAvailable(RoleManager.ROLE_DIALER)) startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER), roleRequest)
-            else Toast.makeText(this, "Dialer role unavailable on this device.", Toast.LENGTH_LONG).show()
+            if (rm.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER), roleRequest)
+            } else {
+                Toast.makeText(this, "Dialer role unavailable on this device.", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            val request = android.content.Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER)
+                .putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, packageName)
+            startActivityForResult(request, roleRequest)
         }
     }
 
@@ -83,6 +94,25 @@ class MainActivity : Activity() {
             (getSystemService(Context.TELECOM_SERVICE) as TelecomManager).placeCall(Uri.fromParts("tel", value, null), Bundle())
         } catch (e: Exception) {
             Toast.makeText(this, "Could not start call: ${e.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    @Deprecated("Uses runtime permission callback for broad Android compatibility")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            103 -> {
+                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) placeCall()
+                else Toast.makeText(this, "Call permission is required to place a call.", Toast.LENGTH_LONG).show()
+            }
+            102 -> {
+                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) lookupContact()
+                else Toast.makeText(this, "Contacts permission was not granted.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
