@@ -1,4 +1,4 @@
-package in.bharatcall.app
+package com.bharatcall.app
 
 import android.content.Intent
 import android.telecom.Call
