@@ -2,7 +2,7 @@ name: Android debug APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
 
@@ -12,9 +12,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -25,24 +22,21 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Gradle
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools, platforms;android-35, build-tools;35.0.0"
+
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      # Avoid setup-android's legacy "tools" package request, which currently
-      # fails on the runner's preinstalled SDK command-line tools.
-      - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" --licenses || true
-
-      - name: Install Android SDK packages
-        run: "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Verify toolchain
+      - name: Verify Android SDK
         run: |
-          java -version
-          gradle --version
+          echo "ANDROID_HOME=$ANDROID_HOME"
           test -d "$ANDROID_HOME/platforms/android-35"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
