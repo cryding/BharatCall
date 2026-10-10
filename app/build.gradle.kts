@@ -3,10 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 android {
-    namespace = "in.bharatcall.app"
+    namespace = "com.bharatcall.app"
     compileSdk = 35
     defaultConfig {
-        applicationId = "in.bharatcall.app"
+        applicationId = "com.bharatcall.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
