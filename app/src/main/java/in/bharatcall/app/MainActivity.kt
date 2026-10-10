@@ -186,6 +186,10 @@ class MainActivity : Activity() {
     }
 
     private fun chooseSimAccount() {
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.READ_PHONE_STATE), 104)
+            return
+        }
         val telecom = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
         val accounts = try {
             telecom.callCapablePhoneAccounts
@@ -261,6 +265,10 @@ class MainActivity : Activity() {
             102 -> {
                 if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) lookupContact()
                 else Toast.makeText(this, "Contacts permission was not granted.", Toast.LENGTH_SHORT).show()
+            }
+            104 -> {
+                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) chooseSimAccount()
+                else Toast.makeText(this, "Phone-state permission was not granted. Android may use the system SIM selector.", Toast.LENGTH_LONG).show()
             }
         }
     }
