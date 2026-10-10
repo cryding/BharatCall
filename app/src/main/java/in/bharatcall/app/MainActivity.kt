@@ -1,4 +1,4 @@
-package in.bharatcall.app
+package com.bharatcall.app
 
 import android.Manifest
 import android.app.Activity
@@ -33,7 +33,7 @@ class MainActivity : Activity() {
         root.addView(TextView(this).apply { text = "Private-first Indian dialer • MVP"; gravity = Gravity.CENTER; setPadding(0, 8, 0, 18) })
         status = TextView(this)
         root.addView(status)
-        number = EditText(this).apply { hint = "Enter phone number"; inputType = android.text.InputType.TYPE_CLASS_PHONE; textSize = 24f; gravity = Gravity.CENTER; singleLine = true }
+        number = EditText(this).apply { hint = "Enter phone number"; inputType = android.text.InputType.TYPE_CLASS_PHONE; textSize = 24f; gravity = Gravity.CENTER; isSingleLine = true }
         root.addView(number, LinearLayout.LayoutParams(-1, 64))
         listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9"), listOf("*","0","#")).forEach { keys ->
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
