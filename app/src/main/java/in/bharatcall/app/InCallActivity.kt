@@ -2,6 +2,8 @@ package com.bharatcall.app
 
 import android.app.Activity
 import android.os.Bundle
+import android.graphics.Color
+import android.content.res.ColorStateList
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -11,13 +13,15 @@ class InCallActivity : Activity() {
     private lateinit var status: TextView
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(24,24,24,24) }
-        root.addView(TextView(this).apply { text = "BharatCall"; textSize = 28f })
-        status = TextView(this).apply { textSize = 20f; setPadding(0,20,0,20) }
+        window.statusBarColor = Color.rgb(20, 35, 55)
+        window.navigationBarColor = Color.rgb(20, 35, 55)
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(24,24,24,24); setBackgroundColor(Color.WHITE) }
+        root.addView(TextView(this).apply { text = "BharatCall"; textSize = 28f; setTextColor(Color.rgb(25, 40, 60)) })
+        status = TextView(this).apply { textSize = 20f; setTextColor(Color.BLACK); setPadding(0,20,0,20) }
         root.addView(status)
-        root.addView(Button(this).apply { text = "Answer"; setOnClickListener { CallState.answer(); refresh() } })
-        root.addView(Button(this).apply { text = "End call"; setOnClickListener { CallState.disconnect(); refresh() } })
-        root.addView(Button(this).apply { text = "Back to dial pad"; setOnClickListener { finish() } })
+        root.addView(Button(this).apply { text = "Answer"; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(0, 121, 107)); setOnClickListener { CallState.answer(); refresh() } })
+        root.addView(Button(this).apply { text = "End call"; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(183, 28, 28)); setOnClickListener { CallState.disconnect(); refresh() } })
+        root.addView(Button(this).apply { text = "Back to dial pad"; setTextColor(Color.BLACK); backgroundTintList = ColorStateList.valueOf(Color.rgb(232, 240, 242)); setOnClickListener { finish() } })
         setContentView(root)
         refresh()
     }
