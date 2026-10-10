@@ -1,6 +1,7 @@
 package com.bharatcall.app
 
 import android.telecom.Call
+import android.telecom.CallAudioState
 import android.telecom.VideoProfile
 
 object CallState {
@@ -53,7 +54,7 @@ object CallState {
     fun toggleSpeaker(): Boolean {
         val service = inCallService ?: return false
         speaker = !speaker
-        service.setAudioRoute(if (speaker) CallAudioRoute.SPEAKER else CallAudioRoute.EARPIECE)
+        service.setAudioRoute(if (speaker) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
         return true
     }
 }
