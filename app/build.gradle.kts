@@ -11,7 +11,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "CALLER_ID_API_BASE_URL", "\" \"")
+        buildConfigField("String", "CALLER_ID_API_BASE_URL", "\"\"\"")
     }
     buildFeatures { buildConfig = true }
     compileOptions {
