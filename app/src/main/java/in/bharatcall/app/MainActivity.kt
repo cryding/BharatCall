@@ -9,11 +9,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.graphics.Color
-import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.telecom.TelecomManager
 import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -45,17 +44,36 @@ class MainActivity : Activity() {
         root.addView(number, LinearLayout.LayoutParams(-1, 64))
         listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9"), listOf("*","0","#")).forEach { keys ->
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
-            keys.forEach { key -> row.addView(Button(this).apply { text = key; setTextColor(Color.BLACK); backgroundTintList = ColorStateList.valueOf(Color.rgb(232, 240, 242)); setOnClickListener { number.append(key) } }, LinearLayout.LayoutParams(0, 58, 1f)) }
+            keys.forEach { key -> row.addView(makeAction(key, false) { number.append(key) }, LinearLayout.LayoutParams(0, 58, 1f)) }
             root.addView(row, LinearLayout.LayoutParams(-1, 60))
         }
-        root.addView(Button(this).apply { text = "Delete"; setTextColor(Color.BLACK); backgroundTintList = ColorStateList.valueOf(Color.rgb(232, 240, 242)); setOnClickListener { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) } }, LinearLayout.LayoutParams(-1, 48))
-        root.addView(Button(this).apply { text = "Set as default phone app"; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(0, 121, 107)); setOnClickListener { requestDialerRole() } }, LinearLayout.LayoutParams(-1, 50))
-        root.addView(Button(this).apply { text = "Call"; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(0, 121, 107)); setOnClickListener { placeCall() } }, LinearLayout.LayoutParams(-1, 56))
-        root.addView(Button(this).apply { text = "Find saved contact name"; setTextColor(Color.BLACK); backgroundTintList = ColorStateList.valueOf(Color.rgb(232, 240, 242)); setOnClickListener { lookupContact() } }, LinearLayout.LayoutParams(-1, 50))
+        root.addView(makeAction("Delete", false) { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) }, LinearLayout.LayoutParams(-1, 48))
+        root.addView(makeAction("Set as default phone app", true) { requestDialerRole() }, LinearLayout.LayoutParams(-1, 50))
+        root.addView(makeAction("Call", true) { placeCall() }, LinearLayout.LayoutParams(-1, 56))
+        root.addView(makeAction("Find saved contact name", false) { lookupContact() }, LinearLayout.LayoutParams(-1, 50))
         root.addView(TextView(this).apply { text = "Online caller ID is disabled until a reviewed HTTPS service is configured."; textSize = 12f; setTextColor(Color.DKGRAY); setPadding(0, 12, 0, 0) })
         setContentView(root)
         intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart?.let { number.setText(it) }
         refreshStatus()
+    }
+
+    private fun makeAction(label: String, primary: Boolean, action: () -> Unit): TextView {
+        val fill = if (primary) Color.rgb(0, 121, 107) else Color.rgb(232, 240, 242)
+        val ink = if (primary) Color.WHITE else Color.rgb(25, 40, 60)
+        return TextView(this).apply {
+            text = label
+            textSize = 16f
+            setTextColor(ink)
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            setPadding(12, 10, 12, 10)
+            background = GradientDrawable().apply {
+                setColor(fill)
+                cornerRadius = 12f
+            }
+            setOnClickListener { action() }
+        }
     }
 
     private fun isDefaultDialer(): Boolean {
