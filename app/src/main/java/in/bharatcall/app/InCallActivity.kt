@@ -1,4 +1,4 @@
-package in.bharatcall.app
+package com.bharatcall.app
 
 import android.app.Activity
 import android.os.Bundle
