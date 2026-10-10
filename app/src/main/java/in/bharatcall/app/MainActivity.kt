@@ -2,6 +2,7 @@ package com.bharatcall.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -12,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.telecom.TelecomManager
+import android.telecom.PhoneAccountHandle
 import android.view.Gravity
 import android.view.View
 import android.widget.EditText
@@ -23,6 +25,8 @@ import android.widget.Toast
 class MainActivity : Activity() {
     private lateinit var number: EditText
     private lateinit var status: TextView
+    private lateinit var simButton: TextView
+    private var selectedPhoneAccount: PhoneAccountHandle? = null
     private val roleRequest = 101
     private val teal = Color.rgb(0, 121, 107)
     private val ink = Color.rgb(25, 40, 60)
@@ -100,6 +104,9 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(8) })
         content.addView(actionView("Set as default phone app", true) { requestDialerRole() },
             LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(8) })
+        simButton = actionView("Choose SIM for calls", false) { chooseSimAccount() }
+        content.addView(simButton,
+            LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(8) })
         content.addView(actionView("Call", true) { placeCall() },
             LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(8) })
         content.addView(actionView("Find saved contact name", false) { lookupContact() },
@@ -178,6 +185,42 @@ class MainActivity : Activity() {
         if (requestCode == roleRequest) refreshStatus()
     }
 
+    private fun chooseSimAccount() {
+        val telecom = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+        val accounts = try {
+            telecom.callCapablePhoneAccounts
+        } catch (e: SecurityException) {
+            Toast.makeText(this, "Android did not allow SIM account access. Use the system SIM selector.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        if (accounts.isEmpty()) {
+            selectedPhoneAccount = null
+            simButton.text = "SIM: system default"
+            Toast.makeText(this, "No call-capable SIM accounts found. Android will choose the SIM.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val labels = accounts.mapIndexed { index, handle ->
+            val accountLabel = telecom.getPhoneAccount(handle)?.label?.toString()?.takeIf { it.isNotBlank() }
+            accountLabel ?: "SIM ${index + 1}"
+        }.toTypedArray()
+
+        val selectedIndex = accounts.indexOf(selectedPhoneAccount).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("Choose SIM for outgoing calls")
+            .setSingleChoiceItems(labels, if (selectedPhoneAccount == null) -1 else selectedIndex) { dialog, which ->
+                selectedPhoneAccount = accounts[which]
+                simButton.text = "SIM: ${labels[which]}"
+                dialog.dismiss()
+            }
+            .setNeutralButton("Use system default") { _, _ ->
+                selectedPhoneAccount = null
+                simButton.text = "SIM: system default"
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
     private fun placeCall() {
         val value = number.text.toString().trim()
         if (value.isBlank()) {
@@ -193,8 +236,11 @@ class MainActivity : Activity() {
             return
         }
         try {
+            val extras = Bundle().apply {
+                selectedPhoneAccount?.let { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+            }
             (getSystemService(Context.TELECOM_SERVICE) as TelecomManager)
-                .placeCall(Uri.fromParts("tel", value, null), Bundle())
+                .placeCall(Uri.fromParts("tel", value, null), extras)
         } catch (e: Exception) {
             Toast.makeText(this, "Could not start call: ${e.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
         }
