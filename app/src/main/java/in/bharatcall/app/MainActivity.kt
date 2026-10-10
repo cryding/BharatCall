@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Color
+import android.content.res.ColorStateList
 import android.telecom.TelecomManager
 import android.view.Gravity
 import android.view.ViewGroup
@@ -24,27 +26,33 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = Color.rgb(20, 35, 55)
+        window.navigationBarColor = Color.rgb(20, 35, 55)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = 0
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(24, 28, 24, 24)
+            setBackgroundColor(Color.WHITE)
         }
-        root.addView(TextView(this).apply { text = "🇮🇳 BharatCall"; textSize = 30f; gravity = Gravity.CENTER })
-        root.addView(TextView(this).apply { text = "Private-first Indian dialer • MVP"; gravity = Gravity.CENTER; setPadding(0, 8, 0, 18) })
-        status = TextView(this)
+        root.addView(TextView(this).apply { text = "🇮🇳 BharatCall"; textSize = 30f; gravity = Gravity.CENTER; setTextColor(Color.rgb(25, 40, 60)) })
+        root.addView(TextView(this).apply { text = "Private-first Indian dialer • MVP"; gravity = Gravity.CENTER; setPadding(0, 8, 0, 18); setTextColor(Color.DKGRAY) })
+        status = TextView(this).apply { setTextColor(Color.rgb(25, 40, 60)); textSize = 16f }
         root.addView(status)
-        number = EditText(this).apply { hint = "Enter phone number"; inputType = android.text.InputType.TYPE_CLASS_PHONE; textSize = 24f; gravity = Gravity.CENTER; isSingleLine = true }
+        number = EditText(this).apply { hint = "Enter phone number"; inputType = android.text.InputType.TYPE_CLASS_PHONE; textSize = 24f; gravity = Gravity.CENTER; isSingleLine = true; setTextColor(Color.BLACK); setHintTextColor(Color.GRAY); backgroundTintList = ColorStateList.valueOf(Color.rgb(0, 121, 107)) }
         root.addView(number, LinearLayout.LayoutParams(-1, 64))
         listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9"), listOf("*","0","#")).forEach { keys ->
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
-            keys.forEach { key -> row.addView(Button(this).apply { text = key; setOnClickListener { number.append(key) } }, LinearLayout.LayoutParams(0, 58, 1f)) }
+            keys.forEach { key -> row.addView(Button(this).apply { text = key; setTextColor(Color.BLACK); backgroundTintList = ColorStateList.valueOf(Color.rgb(232, 240, 242)); setOnClickListener { number.append(key) } }, LinearLayout.LayoutParams(0, 58, 1f)) }
             root.addView(row, LinearLayout.LayoutParams(-1, 60))
         }
-        root.addView(Button(this).apply { text = "Delete"; setOnClickListener { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) } }, LinearLayout.LayoutParams(-1, 48))
-        root.addView(Button(this).apply { text = "Set as default phone app"; setOnClickListener { requestDialerRole() } }, LinearLayout.LayoutParams(-1, 50))
-        root.addView(Button(this).apply { text = "Call"; setOnClickListener { placeCall() } }, LinearLayout.LayoutParams(-1, 56))
-        root.addView(Button(this).apply { text = "Find saved contact name"; setOnClickListener { lookupContact() } }, LinearLayout.LayoutParams(-1, 50))
-        root.addView(TextView(this).apply { text = "Online caller ID is disabled until a reviewed HTTPS service is configured."; textSize = 12f; setPadding(0, 12, 0, 0) })
+        root.addView(Button(this).apply { text = "Delete"; setTextColor(Color.BLACK); backgroundTintList = ColorStateList.valueOf(Color.rgb(232, 240, 242)); setOnClickListener { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) } }, LinearLayout.LayoutParams(-1, 48))
+        root.addView(Button(this).apply { text = "Set as default phone app"; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(0, 121, 107)); setOnClickListener { requestDialerRole() } }, LinearLayout.LayoutParams(-1, 50))
+        root.addView(Button(this).apply { text = "Call"; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(0, 121, 107)); setOnClickListener { placeCall() } }, LinearLayout.LayoutParams(-1, 56))
+        root.addView(Button(this).apply { text = "Find saved contact name"; setTextColor(Color.BLACK); backgroundTintList = ColorStateList.valueOf(Color.rgb(232, 240, 242)); setOnClickListener { lookupContact() } }, LinearLayout.LayoutParams(-1, 50))
+        root.addView(TextView(this).apply { text = "Online caller ID is disabled until a reviewed HTTPS service is configured."; textSize = 12f; setTextColor(Color.DKGRAY); setPadding(0, 12, 0, 0) })
         setContentView(root)
         intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart?.let { number.setText(it) }
         refreshStatus()
