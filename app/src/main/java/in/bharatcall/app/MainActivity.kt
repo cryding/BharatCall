@@ -33,24 +33,25 @@ class MainActivity : Activity() {
     private var selectedPhoneAccount: PhoneAccountHandle? = null
     private var currentTab = "Keypad"
     private val roleRequest = 101
-    private val teal = Color.rgb(0, 210, 145)
-    private val ink = Color.rgb(235, 243, 249)
-    private val muted = Color.rgb(153, 169, 184)
-    private val panel = Color.rgb(19, 32, 42)
-    private val bg = Color.rgb(7, 17, 23)
+    private val teal = Color.rgb(0, 190, 110)
+    private val ink = Color.rgb(17, 31, 48)
+    private val muted = Color.rgb(91, 108, 127)
+    private val panel = Color.rgb(239, 245, 253)
+    private val bg = Color.rgb(255, 255, 255)
     private var tone: ToneGenerator? = null
     private val favorites by lazy { getSharedPreferences("favorites", MODE_PRIVATE) }
     private fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
-        window.decorView.systemUiVisibility = 0
+        window.statusBarColor = Color.WHITE
+        window.navigationBarColor = Color.WHITE
+        window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         tone = try { ToneGenerator(AudioManager.STREAM_DTMF, 75) } catch (_: Exception) { null }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(12), dp(18), dp(8)) }
-        header.addView(label("📞 BharatCall", 27f, ink), LinearLayout.LayoutParams(-1, dp(42)))
+        val brand = label("📞 BharatCall", 27f, Color.rgb(15, 93, 218)).apply { typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD) }
+        header.addView(brand, LinearLayout.LayoutParams(-1, dp(42)))
         header.addView(label("India Connected  •  Safer Calling", 13f, muted), LinearLayout.LayoutParams(-1, dp(24)))
         root.addView(header)
         status = label("", 12f, muted)
@@ -60,12 +61,12 @@ class MainActivity : Activity() {
         body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(16)) }
         scroll.addView(body)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(4), dp(5), dp(4), dp(5)); setBackgroundColor(Color.rgb(14, 26, 35)) }
+        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(6), dp(5), dp(6), dp(5)); setBackgroundColor(Color.rgb(248, 250, 254)) }
         listOf("Favourites", "Recents", "Keypad", "Contacts").forEach { tab ->
             val title = when (tab) { "Favourites" -> "☆\nFavourites"; "Recents" -> "◷\nRecents"; "Keypad" -> "▦\nKeypad"; else -> "♙\nContacts" }
             nav.addView(label(title, 12f, if (tab == currentTab) teal else muted).apply {
                 gravity = Gravity.CENTER; isClickable = true; isFocusable = true
-                background = rounded(if (tab == currentTab) Color.rgb(24, 53, 62) else Color.TRANSPARENT)
+                background = rounded(if (tab == currentTab) Color.rgb(229, 240, 255) else Color.TRANSPARENT)
                 setOnClickListener { currentTab = tab; render() }
             }, LinearLayout.LayoutParams(0, dp(56), 1f))
         }
@@ -83,9 +84,27 @@ class MainActivity : Activity() {
         isClickable = true; isFocusable = true; setOnClickListener { callback() }
     }
 
+    private fun dialKey(digit: String, letters: String, callback: () -> Unit) = TextView(this).apply {
+        text = if (letters.isBlank()) digit else "$digit\n$letters"
+        textSize = 23f
+        gravity = Gravity.CENTER
+        setTextColor(ink)
+        setLineSpacing(0f, 0.9f)
+        typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.rgb(241, 246, 254))
+            setStroke(dp(1), Color.rgb(233, 240, 250))
+        }
+        isClickable = true
+        isFocusable = true
+        contentDescription = if (letters.isBlank()) digit else "$digit, $letters"
+        setOnClickListener { callback() }
+    }
+
     private fun render() {
         body.removeAllViews()
-        status.text = if (isDefaultDialer()) "Default phone app enabled" else "Set BharatCall as your default phone app for full call handling."
+        status.text = if (isDefaultDialer()) "✓  Default phone app enabled" else "Set as default phone app for full call handling."
         when (currentTab) { "Keypad" -> showKeypad(); "Recents" -> showRecents(); "Contacts" -> showContacts(false); else -> showContacts(true) }
     }
 
@@ -97,12 +116,18 @@ class MainActivity : Activity() {
             backgroundTintList = ColorStateList.valueOf(teal); setPadding(dp(14), dp(4), dp(14), dp(4))
             intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart?.let { setText(it) }
         }
-        body.addView(number, LinearLayout.LayoutParams(-1, dp(60)).apply { bottomMargin = dp(12) })
+        val numberRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = rounded(panel); setPadding(dp(10), 0, dp(10), 0) }
+        numberRow.addView(label("🇮🇳  +91", 17f, ink).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-2, dp(58)))
+        number.background = null
+        number.backgroundTintList = null
+        numberRow.addView(number, LinearLayout.LayoutParams(0, dp(58), 1f))
+        numberRow.addView(action("⌫", false) { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) }, LinearLayout.LayoutParams(dp(42), dp(46)))
+        body.addView(numberRow, LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(12) })
         val keys = listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("*", "0", "#"))
         keys.forEach { rowKeys ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             rowKeys.forEach { key ->
-                row.addView(action(key + if (key == "2") "\nABC" else if (key == "3") "\nDEF" else if (key == "4") "\nGHI" else if (key == "5") "\nJKL" else if (key == "6") "\nMNO" else if (key == "7") "\nPQRS" else if (key == "8") "\nTUV" else if (key == "9") "\nWXYZ" else if (key == "0") "\n+" else "", false) {
+                row.addView(dialKey(key, when (key) { "2" -> "ABC"; "3" -> "DEF"; "4" -> "GHI"; "5" -> "JKL"; "6" -> "MNO"; "7" -> "PQRS"; "8" -> "TUV"; "9" -> "WXYZ"; "0" -> "+"; "1" -> ""; else -> "" }) {
                     number.append(key)
                     val t = when (key) {
                         "0" -> ToneGenerator.TONE_DTMF_0; "1" -> ToneGenerator.TONE_DTMF_1; "2" -> ToneGenerator.TONE_DTMF_2
@@ -111,12 +136,12 @@ class MainActivity : Activity() {
                         "9" -> ToneGenerator.TONE_DTMF_9; "*" -> ToneGenerator.TONE_DTMF_S; else -> ToneGenerator.TONE_DTMF_P
                     }
                     tone?.startTone(t, 120)
-                }.apply { textSize = 20f }, LinearLayout.LayoutParams(0, dp(66), 1f).apply { setMargins(dp(3), dp(3), dp(3), dp(3)) })
+                }, LinearLayout.LayoutParams(0, dp(88), 1f).apply { setMargins(dp(4), dp(4), dp(4), dp(4)) })
             }
             body.addView(row)
         }
-        body.addView(action("⌫  Delete last digit") { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) })
-        body.addView(action("Call", true) { placeCall(number.text.toString()) }, LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(12) })
+        body.addView(action("＋  Add contact", false) { try { startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)) } catch (_: Exception) { Toast.makeText(this, "Contacts app unavailable.", Toast.LENGTH_SHORT).show() } }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(5) })
+        body.addView(action("☎  Call", true) { placeCall(number.text.toString()) }, LinearLayout.LayoutParams(-1, dp(60)).apply { topMargin = dp(6) })
         body.addView(action("Set as default phone app") { requestDialerRole() }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         body.addView(action("Choose SIM for outgoing calls") { chooseSimAccount() }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
     }
