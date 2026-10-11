@@ -84,8 +84,8 @@ class MainActivity : Activity() {
     private fun rounded(color: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(16).toFloat() }
     private fun label(value: String, size: Float, color: Int) = TextView(this).apply { text = value; textSize = size; setTextColor(color); setPadding(dp(4), dp(5), dp(4), dp(5)) }
     private fun action(value: String, primary: Boolean = false, callback: () -> Unit) = TextView(this).apply {
-        text = value; textSize = 16f; gravity = Gravity.CENTER; setTextColor(if (primary) Color.WHITE else ink)
-        setPadding(dp(10), dp(10), dp(10), dp(10)); background = rounded(if (primary) Color.rgb(0, 137, 105) else Color.rgb(28, 43, 54))
+        text = value; textSize = 16f; gravity = Gravity.CENTER; setTextColor(if (primary) Color.WHITE else Color.rgb(15, 93, 218))
+        setPadding(dp(10), dp(10), dp(10), dp(10)); background = rounded(if (primary) Color.rgb(0, 190, 80) else Color.rgb(239, 245, 253))
         isClickable = true; isFocusable = true; setOnClickListener { callback() }
     }
 
@@ -98,8 +98,8 @@ class MainActivity : Activity() {
         typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.rgb(241, 246, 254))
-            setStroke(dp(1), Color.rgb(233, 240, 250))
+            setColor(Color.rgb(239, 245, 253))
+            setStroke(dp(1), Color.rgb(239, 245, 253))
         }
         isClickable = true
         isFocusable = true
@@ -150,8 +150,8 @@ class MainActivity : Activity() {
         callActions.addView(action("☎\nCall", true) { placeCall(number.text.toString()) }, LinearLayout.LayoutParams(0, dp(66), 1.2f).apply { setMargins(dp(3), 0, dp(3), 0) })
         callActions.addView(action("▣\nVideo call", false) { placeCall(number.text.toString(), true) }, LinearLayout.LayoutParams(0, dp(66), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
         body.addView(callActions)
-        body.addView(action("Set as default phone app") { requestDialerRole() }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
-        body.addView(action("Choose SIM for outgoing calls") { chooseSimAccount() }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+        if (!isDefaultDialer()) body.addView(action("Set as default phone app  ›") { requestDialerRole() }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+        body.addView(action("Choose SIM for outgoing calls") { chooseSimAccount() }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
     }
 
     private fun showRecents() {
