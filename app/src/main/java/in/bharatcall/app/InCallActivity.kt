@@ -52,6 +52,12 @@ class InCallActivity : Activity() {
             background = cinematicBg
         }
         scroll.addView(root)
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val topInset = if (android.os.Build.VERSION.SDK_INT >= 30) insets.getInsets(android.view.WindowInsets.Type.statusBars()).top else insets.systemWindowInsetTop
+            val bottomInset = if (android.os.Build.VERSION.SDK_INT >= 30) insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom else insets.systemWindowInsetBottom
+            view.setPadding(dp(20), dp(22) + topInset, dp(20), dp(24) + bottomInset)
+            insets
+        }
         root.addView(TextView(this).apply {
             text = "☎  BharatCall"
             textSize = 26f
