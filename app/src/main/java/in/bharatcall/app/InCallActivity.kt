@@ -37,16 +37,17 @@ class InCallActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        window.statusBarColor = Color.rgb(3, 12, 29)
+        window.navigationBarColor = Color.rgb(3, 12, 29)
         window.decorView.systemUiVisibility = 0
 
-        val scroll = ScrollView(this).apply { isFillViewport = true; setBackgroundColor(bg) }
+        val cinematicBg = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(3, 15, 43), Color.rgb(3, 20, 32), Color.rgb(8, 44, 30), Color.rgb(38, 17, 12)))
+        val scroll = ScrollView(this).apply { isFillViewport = true; background = cinematicBg }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(20), dp(22), dp(20), dp(24))
-            setBackgroundColor(bg)
+            background = cinematicBg
         }
         scroll.addView(root)
         root.addView(TextView(this).apply {
@@ -71,13 +72,13 @@ class InCallActivity : Activity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.rgb(20, 54, 91))
-                setStroke(dp(3), blue)
+                setStroke(dp(3), Color.rgb(80, 205, 255))
             }
         }
         root.addView(avatar, LinearLayout.LayoutParams(dp(112), dp(112)).apply {
             gravity = Gravity.CENTER
-            topMargin = dp(28)
-            bottomMargin = dp(20)
+            topMargin = dp(38)
+            bottomMargin = dp(24)
         })
 
         callInfo = TextView(this).apply {
@@ -139,7 +140,7 @@ class InCallActivity : Activity() {
         refresh()
     }
 
-    private fun gridParams() = LinearLayout.LayoutParams(0, dp(94), 1f).apply {
+    private fun gridParams() = LinearLayout.LayoutParams(0, dp(104), 1f).apply {
         setMargins(dp(4), dp(5), dp(4), dp(5))
     }
 
@@ -150,9 +151,7 @@ class InCallActivity : Activity() {
         setTextColor(Color.WHITE)
         setLineSpacing(dp(3).toFloat(), 1f)
         background = GradientDrawable().apply {
-            setColor(color)
-            cornerRadius = dp(24).toFloat()
-            setStroke(dp(1), if (color == panel) Color.rgb(49, 67, 91) else color)
+            if (color == panel) { shape = GradientDrawable.OVAL; setColor(Color.argb(110, 24, 38, 62)); setStroke(dp(1), Color.rgb(75, 94, 128)) } else { setColor(color); cornerRadius = dp(36).toFloat(); setStroke(dp(1), color) }
         }
         isClickable = true
         isFocusable = true
