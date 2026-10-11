@@ -13,9 +13,11 @@ object CallState {
     val callback = object : Call.Callback() {
         override fun onStateChanged(call: Call, state: Int) {
             currentCall = call
+            inCallService?.updateCallNotification(call)
             InCallActivity.notifyCallChanged()
         }
         override fun onDetailsChanged(call: Call, details: Call.Details) {
+            inCallService?.updateCallNotification(call)
             InCallActivity.notifyCallChanged()
         }
     }
