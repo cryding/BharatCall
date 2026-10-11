@@ -50,7 +50,12 @@ class MainActivity : Activity() {
         tone = try { ToneGenerator(AudioManager.STREAM_DTMF, 75) } catch (_: Exception) { null }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(12), dp(18), dp(8)) }
-        val brand = label("📞 BharatCall", 27f, Color.rgb(15, 93, 218)).apply { typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD) }
+        val brand = label("☎ BharatCall", 27f, Color.rgb(15, 93, 218)).apply {
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+            val logoText = android.text.SpannableString("☎ BharatCall")
+            logoText.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(255, 132, 0)), 8, 12, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            text = logoText
+        }
         header.addView(brand, LinearLayout.LayoutParams(-1, dp(42)))
         header.addView(label("India Connected  •  Safer Calling", 13f, muted), LinearLayout.LayoutParams(-1, dp(24)))
         root.addView(header)
