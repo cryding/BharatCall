@@ -102,6 +102,23 @@ class MainActivity : Activity() {
             }
         }, LinearLayout.LayoutParams(dp(32), dp(48)))
         header.addView(brandRow)
+        val topTabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(3), dp(3), dp(3), dp(3))
+            background = rounded(Color.rgb(9, 19, 28))
+        }
+        listOf("Recents", "Contacts", "Favourites").forEach { tab ->
+            val title = when (tab) { "Recents" -> "◷  Recents"; "Contacts" -> "♙  Contacts"; else -> "★  Favourites" }
+            topTabs.addView(label(title, 14f, if (tab == currentTab) Color.WHITE else Color.rgb(177, 192, 207)).apply {
+                tag = tab
+                gravity = Gravity.CENTER
+                isClickable = true; isFocusable = true
+                background = rounded(if (tab == currentTab) Color.rgb(20, 75, 145) else Color.TRANSPARENT)
+                setOnClickListener { currentTab = tab; render() }
+            }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }
+        header.addView(topTabs, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(8) })
         root.addView(header)
         status = label("", 12f, muted)
         status.visibility = android.view.View.GONE
@@ -176,6 +193,16 @@ class MainActivity : Activity() {
         status.setTextColor(Color.rgb(175, 193, 207))
         status.text = if (isDefaultDialer()) "Default phone app" else ""
         status.visibility = if (isDefaultDialer()) android.view.View.VISIBLE else android.view.View.GONE
+        val headerTabs = shell?.getChildAt(0) as? LinearLayout
+        val topTabs = headerTabs?.getChildAt(1) as? LinearLayout
+        topTabs?.let { bar ->
+            for (i in 0 until bar.childCount) {
+                val item = bar.getChildAt(i) as? TextView ?: continue
+                val tab = item.tag as? String ?: continue
+                item.setTextColor(if (tab == currentTab) Color.WHITE else Color.rgb(177, 192, 207))
+                item.background = rounded(if (tab == currentTab) Color.rgb(20, 75, 145) else Color.TRANSPARENT)
+            }
+        }
         val nav = shell?.getChildAt(3) as? LinearLayout
         nav?.let { bar -> for (i in 0 until bar.childCount) {
             val item = bar.getChildAt(i) as? TextView ?: continue
