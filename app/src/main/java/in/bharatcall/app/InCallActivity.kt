@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.provider.ContactsContract
 import android.telecom.Call
 import android.view.Gravity
 import android.view.View
@@ -16,6 +17,7 @@ import android.widget.Toast
 
 class InCallActivity : Activity() {
     private lateinit var callInfo: TextView
+    private lateinit var callerName: TextView
     private lateinit var callState: TextView
     private lateinit var answerButton: TextView
     private lateinit var rejectButton: TextView
@@ -81,12 +83,19 @@ class InCallActivity : Activity() {
             bottomMargin = dp(24)
         })
 
-        callInfo = TextView(this).apply {
-            textSize = 26f
+        callerName = TextView(this).apply {
+            textSize = 29f
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             setTextColor(white)
-            setPadding(dp(8), dp(6), dp(8), dp(4))
+            setPadding(dp(8), dp(4), dp(8), dp(2))
+        }
+        root.addView(callerName, LinearLayout.LayoutParams(-1, -2))
+        callInfo = TextView(this).apply {
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(211, 222, 239))
+            setPadding(dp(8), dp(2), dp(8), dp(5))
         }
         root.addView(callInfo, LinearLayout.LayoutParams(-1, -2))
         callState = TextView(this).apply {
@@ -158,6 +167,16 @@ class InCallActivity : Activity() {
         setOnClickListener { click() }
     }
 
+    private fun lookupCallerName(phone: String): String? {
+        if (phone.isBlank() || checkSelfPermission(android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return null
+        return try {
+            val uri = android.net.Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(phone))
+            contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0)?.takeIf { it.isNotBlank() } else null
+            }
+        } catch (_: Exception) { null }
+    }
+
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
     override fun onResume() { super.onResume(); refresh() }
@@ -166,7 +185,10 @@ class InCallActivity : Activity() {
         if (!::callInfo.isInitialized) return
         val call = CallState.currentCall
         val ringing = call?.state == Call.STATE_RINGING
-        callInfo.text = call?.details?.handle?.schemeSpecificPart?.takeIf { it.isNotBlank() } ?: "Unknown caller"
+        val phone = call?.details?.handle?.schemeSpecificPart.orEmpty()
+        val resolvedName = lookupCallerName(phone)
+        callerName.text = resolvedName ?: if (phone.isBlank()) "Unknown caller" else phone
+        callInfo.text = if (resolvedName != null && phone.isNotBlank()) phone else ""
         callState.text = when (call?.state) {
             Call.STATE_RINGING -> "Incoming call…"
             Call.STATE_DIALING, Call.STATE_CONNECTING -> "Calling…"
