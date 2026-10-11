@@ -37,6 +37,7 @@ class MainActivity : Activity() {
     private var pendingContactQuery = ""
     private var selectedPhoneAccount: PhoneAccountHandle? = null
     private var pendingVideoCall = false
+    private var contactSearchInput: EditText? = null
     private var currentTab = "Keypad"
     private val roleRequest = 101
     private val teal = Color.rgb(0, 190, 110)
@@ -73,15 +74,30 @@ class MainActivity : Activity() {
         brandText.addView(label("India Connected  •  Safer Calling", 12f, muted).apply { setPadding(0, 0, 0, 0) })
         brandRow.addView(brandText, LinearLayout.LayoutParams(0, -2, 1f))
         brandRow.addView(label("⌕", 31f, ink).apply {
-            gravity = Gravity.CENTER; contentDescription = "Search contacts"; isClickable = true; isFocusable = true
-            setOnClickListener { currentTab = "Contacts"; render() }
+            gravity = Gravity.CENTER; contentDescription = "Search saved contacts"; isClickable = true; isFocusable = true
+            setOnClickListener {
+                currentTab = "Contacts"
+                render()
+                contactSearchInput?.requestFocus()
+                contactSearchInput?.post {
+                    contactSearchInput?.requestFocus()
+                    (getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                        .showSoftInput(contactSearchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                }
+            }
         }, LinearLayout.LayoutParams(dp(42), dp(48)))
         brandRow.addView(label("⋮", 28f, ink).apply {
             gravity = Gravity.CENTER; contentDescription = "More options"; isClickable = true; isFocusable = true
             setOnClickListener {
-                AlertDialog.Builder(this@MainActivity).setTitle("BharatCall")
-                    .setItems(arrayOf(if (isDefaultDialer()) "Default phone app ✓" else "Set as default phone app", "Choose SIM", "About BharatCall")) { _, which ->
-                        when (which) { 0 -> requestDialerRole(); 1 -> chooseSimAccount(); 2 -> AlertDialog.Builder(this@MainActivity).setMessage("BharatCall • India Connected • Safer Calling\\nSIM calls are handled by Android Telecom.").setPositiveButton("OK", null).show() }
+                val items = arrayOf("Contacts", "Settings", "Clear call history", "Help & feedback")
+                AlertDialog.Builder(this@MainActivity)
+                    .setItems(items) { _, which ->
+                        when (which) {
+                            0 -> { currentTab = "Contacts"; render() }
+                            1 -> startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                            2 -> confirmClearCallHistory()
+                            3 -> showHelpAndFeedback()
+                        }
                     }.show()
             }
         }, LinearLayout.LayoutParams(dp(32), dp(48)))
@@ -310,6 +326,19 @@ class MainActivity : Activity() {
 
     private fun showContacts(onlyFavorites: Boolean) {
         body.addView(label(if (onlyFavorites) "Favourites" else "Contacts", 23f, ink))
+        if (!onlyFavorites) {
+            contactSearchInput = EditText(this).apply {
+                hint = "Search contacts or numbers"
+                textSize = 16f
+                singleLine = true
+                setTextColor(ink)
+                setHintTextColor(muted)
+                background = rounded(panel)
+                setPadding(dp(14), dp(4), dp(14), dp(4))
+                contentDescription = "Search saved contacts"
+            }
+            body.addView(contactSearchInput, LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(10) })
+        } else contactSearchInput = null
         if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             body.addView(label("Contacts stay on your phone. Grant permission to view them.", 14f, muted))
             body.addView(action("Grant contacts permission", true) { requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 102) })
@@ -325,8 +354,9 @@ class MainActivity : Activity() {
             }
         } catch (_: SecurityException) { }
         if (items.isEmpty()) body.addView(label(if (onlyFavorites) "No favourites yet. Tap ☆ beside a contact to save it." else "No contacts found.", 14f, muted))
+        val contactRows = mutableListOf<Pair<LinearLayout, Triple<String, String, String>>>()
         items.forEach { item ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(6), dp(6), dp(6)); background = rounded(panel) }
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(6), dp(6), dp(6)); background = rounded(panel); tag = (item.first + " " + item.second).lowercase() }
             val detail = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             detail.addView(label(item.first, 16f, ink)); detail.addView(label(item.second, 13f, muted))
             detail.setOnClickListener { currentTab = "Keypad"; render(); number.setText(item.second); number.setSelection(number.text.length) }
@@ -334,7 +364,56 @@ class MainActivity : Activity() {
             row.addView(action(if (favorites.getBoolean(item.third, false)) "★" else "☆") { favorites.edit().putBoolean(item.third, !favorites.getBoolean(item.third, false)).apply(); render() }, LinearLayout.LayoutParams(dp(48), dp(48)))
             row.addView(action("☎", true) { placeCall(item.second) }, LinearLayout.LayoutParams(dp(52), dp(48)))
             body.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+            contactRows.add(row to item)
         }
+        contactSearchInput?.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val query = s?.toString()?.trim()?.lowercase().orEmpty()
+                contactRows.forEach { (row, _) ->
+                    row.visibility = if (query.isBlank() || (row.tag as? String).orEmpty().contains(query)) android.view.View.VISIBLE else android.view.View.GONE
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+    }
+
+    private fun confirmClearCallHistory() {
+        AlertDialog.Builder(this)
+            .setTitle("Clear call history?")
+            .setMessage("This removes call log entries from this phone. Contacts will not be deleted.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Clear history") { _, _ ->
+                if (!isDefaultDialer()) {
+                    Toast.makeText(this, "Set BharatCall as the default phone app first; Android restricts call-log deletion.", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                if (checkSelfPermission(Manifest.permission.WRITE_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(Manifest.permission.WRITE_CALL_LOG), 107)
+                } else deleteCallHistory()
+            }.show()
+    }
+
+    private fun deleteCallHistory() {
+        try {
+            val deleted = contentResolver.delete(CallLog.Calls.CONTENT_URI, null, null)
+            Toast.makeText(this, if (deleted > 0) "Call history cleared." else "No call history to clear.", Toast.LENGTH_LONG).show()
+            if (currentTab == "Recents") render()
+        } catch (_: SecurityException) {
+            Toast.makeText(this, "Android did not allow clearing call history. Check default phone role and permissions.", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not clear call history: " + (e.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showHelpAndFeedback() {
+        AlertDialog.Builder(this)
+            .setTitle("Help & feedback")
+            .setMessage("BharatCall uses Android Telecom for SIM calls. Grant Contacts permission for saved-contact search and set BharatCall as your default phone app for incoming and ongoing call screens. For feedback, include your phone model, Android version, and the steps that caused the issue.")
+            .setPositiveButton("OK", null)
+            .setNeutralButton("App info") { _, _ ->
+                try { startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } catch (_: Exception) {}
+            }.show()
     }
 
     private fun addCallRow(name: String, phone: String, info: String) {
@@ -432,6 +511,7 @@ class MainActivity : Activity() {
             104 -> if (granted) chooseSimAccount() else Toast.makeText(this, "SIM selection permission denied.", Toast.LENGTH_SHORT).show()
             105 -> if (granted) render() else Toast.makeText(this, "Call history permission denied.", Toast.LENGTH_SHORT).show()
             106 -> if (granted) Toast.makeText(this, "Call notifications enabled.", Toast.LENGTH_SHORT).show() else Toast.makeText(this, "Enable notifications so incoming-call UI can appear.", Toast.LENGTH_LONG).show()
+            107 -> if (granted) deleteCallHistory() else Toast.makeText(this, "Android denied permission to clear call history.", Toast.LENGTH_LONG).show()
         }
     }
 }
