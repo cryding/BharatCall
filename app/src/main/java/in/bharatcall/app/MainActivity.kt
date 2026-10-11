@@ -186,11 +186,29 @@ class MainActivity : Activity() {
 
     private fun isDefaultDialer(): Boolean = if (Build.VERSION.SDK_INT >= 29) getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_DIALER) == true else (getSystemService(Context.TELECOM_SERVICE) as TelecomManager).defaultDialerPackage == packageName
     private fun requestDialerRole() {
-        if (Build.VERSION.SDK_INT >= 29) {
-            val rm = getSystemService(RoleManager::class.java)
-            if (rm.isRoleAvailable(RoleManager.ROLE_DIALER)) startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER), roleRequest)
-            else Toast.makeText(this, "Dialer role unavailable on this phone.", Toast.LENGTH_LONG).show()
-        } else startActivityForResult(Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, packageName), roleRequest)
+        if (isDefaultDialer()) {
+            Toast.makeText(this, "BharatCall is already your default phone app.", Toast.LENGTH_SHORT).show()
+            render()
+            return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                val rm = getSystemService(RoleManager::class.java)
+                if (rm == null || !rm.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                    Toast.makeText(this, "This phone does not expose the Android dialer role.", Toast.LENGTH_LONG).show()
+                    return
+                }
+                startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER), roleRequest)
+            } else {
+                startActivityForResult(
+                    Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER)
+                        .putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, packageName),
+                    roleRequest
+                )
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open default-phone selection: " + (e.message ?: "Android blocked the request"), Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun placeCall(raw: String) {
