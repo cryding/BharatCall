@@ -83,8 +83,14 @@ class MainActivity : Activity() {
         header.addView(brandRow)
         root.addView(header)
         status = label("", 12f, muted)
-        status.setPadding(dp(18), dp(6), dp(18), dp(8))
+        status.visibility = android.view.View.GONE
         root.addView(status)
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val topInset = if (Build.VERSION.SDK_INT >= 30) insets.getInsets(android.view.WindowInsets.Type.statusBars()).top else insets.systemWindowInsetTop
+            val bottomInset = if (Build.VERSION.SDK_INT >= 30) insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom else insets.systemWindowInsetBottom
+            view.setPadding(0, topInset, 0, bottomInset)
+            insets
+        }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(16)) }
         scroll.addView(body)
@@ -141,7 +147,8 @@ class MainActivity : Activity() {
         shell?.getChildAt(3)?.setBackgroundColor(if (dark) Color.rgb(9, 19, 28) else Color.rgb(248, 250, 254))
         body.setBackgroundColor(screen)
         status.setTextColor(if (dark) Color.rgb(175, 193, 207) else muted)
-        status.text = if (isDefaultDialer()) "✓  Default phone app enabled" else "Set as default phone app for full call handling."
+        status.text = if (isDefaultDialer()) "Default phone app" else ""
+        status.visibility = if (isDefaultDialer()) android.view.View.VISIBLE else android.view.View.GONE
         val nav = shell?.getChildAt(3) as? LinearLayout
         nav?.let { bar -> for (i in 0 until bar.childCount) {
             val item = bar.getChildAt(i) as? TextView ?: continue
@@ -318,7 +325,22 @@ class MainActivity : Activity() {
     }
 
     @Deprecated("Role callback")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) { super.onActivityResult(requestCode, resultCode, data); if (requestCode == roleRequest) render() }
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == roleRequest) {
+            render()
+            if (!isDefaultDialer()) {
+                AlertDialog.Builder(this)
+                    .setTitle("Default phone access blocked")
+                    .setMessage("If this APK was installed outside an app store, open App info > menu > Allow restricted settings, then try again. Android controls this security step; BharatCall cannot bypass it.")
+                    .setNegativeButton("Not now", null)
+                    .setPositiveButton("Open App info") { _, _ ->
+                        try { startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } catch (_: Exception) { }
+                    }
+                    .show()
+            }
+        }
+    }
 
     @Deprecated("Runtime permission callback")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
