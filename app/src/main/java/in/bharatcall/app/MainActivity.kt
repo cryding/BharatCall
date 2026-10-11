@@ -179,7 +179,11 @@ class MainActivity : Activity() {
         val numberRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = rounded(Color.rgb(39, 41, 47)); setPadding(dp(12), 0, dp(10), 0) }
         numberRow.addView(label("🇮🇳  +91", 17f, Color.rgb(232, 235, 242)).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-2, dp(56)))
         numberRow.addView(number, LinearLayout.LayoutParams(0, dp(56), 1f))
-        numberRow.addView(action("⌫", false) { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) }, LinearLayout.LayoutParams(dp(42), dp(46)))
+        numberRow.addView(TextView(this).apply {
+            text = "⌫"; textSize = 25f; gravity = Gravity.CENTER; setTextColor(Color.rgb(166, 202, 255))
+            isClickable = true; isFocusable = true; contentDescription = "Delete last digit"
+            setOnClickListener { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) }
+        }, LinearLayout.LayoutParams(dp(42), dp(46)))
         body.addView(numberRow, LinearLayout.LayoutParams(-1, dp(60)).apply { bottomMargin = dp(4) })
 
         suggestions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(2), 0, dp(2)) }
