@@ -85,8 +85,8 @@ class MainActivity : Activity() {
     private fun rounded(color: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(16).toFloat() }
     private fun label(value: String, size: Float, color: Int) = TextView(this).apply { text = value; textSize = size; setTextColor(color); setPadding(dp(4), dp(5), dp(4), dp(5)) }
     private fun action(value: String, primary: Boolean = false, callback: () -> Unit) = TextView(this).apply {
-        text = value; textSize = 16f; gravity = Gravity.CENTER; setTextColor(if (primary) Color.WHITE else Color.rgb(15, 93, 218))
-        setPadding(dp(10), dp(10), dp(10), dp(10)); background = rounded(if (primary) Color.rgb(0, 190, 80) else Color.rgb(239, 245, 253))
+        text = value; textSize = 16f; gravity = Gravity.CENTER; setTextColor(if (primary) Color.WHITE else if (currentTab == "Recents") Color.WHITE else Color.rgb(15, 93, 218))
+        setPadding(dp(10), dp(10), dp(10), dp(10)); background = rounded(if (primary) Color.rgb(0, 190, 80) else if (currentTab == "Recents") Color.rgb(22, 34, 45) else Color.rgb(239, 245, 253))
         isClickable = true; isFocusable = true; setOnClickListener { callback() }
     }
 
@@ -110,7 +110,23 @@ class MainActivity : Activity() {
 
     private fun render() {
         body.removeAllViews()
+        val dark = currentTab == "Recents"
+        val shell = body.parent?.parent as? LinearLayout
+        val screen = if (dark) Color.rgb(5, 14, 21) else Color.WHITE
+        shell?.setBackgroundColor(screen)
+        shell?.getChildAt(0)?.setBackgroundColor(screen)
+        shell?.getChildAt(1)?.setBackgroundColor(screen)
+        shell?.getChildAt(3)?.setBackgroundColor(if (dark) Color.rgb(9, 19, 28) else Color.rgb(248, 250, 254))
+        body.setBackgroundColor(screen)
+        status.setTextColor(if (dark) Color.rgb(175, 193, 207) else muted)
         status.text = if (isDefaultDialer()) "✓  Default phone app enabled" else "Set as default phone app for full call handling."
+        val nav = shell?.getChildAt(3) as? LinearLayout
+        nav?.let { bar -> for (i in 0 until bar.childCount) {
+            val item = bar.getChildAt(i) as? TextView ?: continue
+            val tab = listOf("Favourites", "Recents", "Keypad", "Contacts").getOrNull(i) ?: continue
+            item.setTextColor(if (tab == currentTab) teal else if (dark) Color.rgb(177, 192, 207) else muted)
+            item.background = rounded(if (tab == currentTab) if (dark) Color.rgb(20, 66, 118) else Color.rgb(229, 240, 255) else Color.TRANSPARENT)
+        } }
         when (currentTab) { "Keypad" -> showKeypad(); "Recents" -> showRecents(); "Contacts" -> showContacts(false); else -> showContacts(true) }
     }
 
@@ -167,7 +183,7 @@ class MainActivity : Activity() {
     }
 
     private fun showRecents() {
-        body.addView(label("Recent calls", 23f, ink))
+        body.addView(label("Recent calls", 23f, Color.rgb(240, 246, 252)))
         if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
             body.addView(label("Grant call history permission to display your recent calls.", 14f, muted))
             body.addView(action("Grant call history permission", true) { requestPermissions(arrayOf(Manifest.permission.READ_CALL_LOG), 105) })
