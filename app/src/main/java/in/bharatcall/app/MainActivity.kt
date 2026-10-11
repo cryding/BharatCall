@@ -50,15 +50,37 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         tone = try { ToneGenerator(AudioManager.STREAM_DTMF, 75) } catch (_: Exception) { null }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
-        val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(12), dp(18), dp(8)) }
-        val brand = label("☎ BharatCall", 27f, Color.rgb(15, 93, 218)).apply {
+        val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(12), dp(5)) }
+        val brandRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        brandRow.addView(android.widget.ImageView(this).apply {
+            setImageResource(com.bharatcall.app.R.drawable.ic_bharatcall)
+            contentDescription = "BharatCall logo"
+        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { rightMargin = dp(8) })
+        val brandText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
+        val brand = label("BharatCall", 26f, Color.rgb(15, 93, 218)).apply {
             typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-            val logoText = android.text.SpannableString("☎ BharatCall")
-            logoText.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(255, 132, 0)), 8, 12, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val logoText = android.text.SpannableString("BharatCall")
+            logoText.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(255, 132, 0)), 6, 10, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             text = logoText
+            setPadding(0, 0, 0, 0)
         }
-        header.addView(brand, LinearLayout.LayoutParams(-1, dp(42)))
-        header.addView(label("India Connected  •  Safer Calling", 13f, muted), LinearLayout.LayoutParams(-1, dp(24)))
+        brandText.addView(brand)
+        brandText.addView(label("India Connected  •  Safer Calling", 12f, muted).apply { setPadding(0, 0, 0, 0) })
+        brandRow.addView(brandText, LinearLayout.LayoutParams(0, -2, 1f))
+        brandRow.addView(label("⌕", 31f, ink).apply {
+            gravity = Gravity.CENTER; contentDescription = "Search contacts"; isClickable = true; isFocusable = true
+            setOnClickListener { currentTab = "Contacts"; render() }
+        }, LinearLayout.LayoutParams(dp(42), dp(48)))
+        brandRow.addView(label("⋮", 28f, ink).apply {
+            gravity = Gravity.CENTER; contentDescription = "More options"; isClickable = true; isFocusable = true
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity).setTitle("BharatCall")
+                    .setItems(arrayOf(if (isDefaultDialer()) "Default phone app ✓" else "Set as default phone app", "Choose SIM", "About BharatCall")) { _, which ->
+                        when (which) { 0 -> requestDialerRole(); 1 -> chooseSimAccount(); 2 -> AlertDialog.Builder(this@MainActivity).setMessage("BharatCall • India Connected • Safer Calling\\nSIM calls are handled by Android Telecom.").setPositiveButton("OK", null).show() }
+                    }.show()
+            }
+        }, LinearLayout.LayoutParams(dp(32), dp(48)))
+        header.addView(brandRow)
         root.addView(header)
         status = label("", 12f, muted)
         status.setPadding(dp(18), dp(6), dp(18), dp(8))
