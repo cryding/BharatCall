@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <application android:allowBackup="false" android:label="BharatCall" android:icon="@drawable/ic_bharatcall" android:supportsRtl="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
         <activity android:name="com.bharatcall.app.InCallActivity" android:exported="false" android:showWhenLocked="true" android:turnScreenOn="true" />
         <activity android:name="com.bharatcall.app.MainActivity" android:exported="true">
@@ -13,6 +15,7 @@
             <intent-filter><action android:name="android.intent.action.DIAL"/><category android:name="android.intent.category.DEFAULT"/><data android:scheme="tel"/></intent-filter>
             <intent-filter><action android:name="android.intent.action.DIAL"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
         </activity>
+        <receiver android:name="com.bharatcall.app.CallActionReceiver" android:exported="false" />
         <service android:name="com.bharatcall.app.CallService" android:permission="android.permission.BIND_INCALL_SERVICE" android:exported="true">
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true"/>
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false"/>
