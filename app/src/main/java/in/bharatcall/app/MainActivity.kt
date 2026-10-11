@@ -33,6 +33,8 @@ class MainActivity : Activity() {
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
     private lateinit var suggestions: LinearLayout
+    private var contactsPermissionRequested = false
+    private var pendingContactQuery = ""
     private var selectedPhoneAccount: PhoneAccountHandle? = null
     private var pendingVideoCall = false
     private var currentTab = "Keypad"
@@ -227,8 +229,17 @@ class MainActivity : Activity() {
         if (!::suggestions.isInitialized) return
         suggestions.removeAllViews()
         val digits = query.filter { it.isDigit() }
-        if (digits.isBlank() || checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+        if (digits.isBlank()) {
             suggestions.visibility = android.view.View.GONE
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            suggestions.visibility = android.view.View.GONE
+            if (!contactsPermissionRequested) {
+                contactsPermissionRequested = true
+                pendingContactQuery = query
+                requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 102)
+            }
             return
         }
         val matches = mutableListOf<Pair<String, String>>()
@@ -403,7 +414,15 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
         when (requestCode) {
-            102 -> if (granted) render() else Toast.makeText(this, "Contacts permission denied.", Toast.LENGTH_SHORT).show()
+            102 -> if (granted) {
+                val pending = pendingContactQuery
+                pendingContactQuery = ""
+                render()
+                if (currentTab == "Keypad" && pending.isNotBlank()) {
+                    number.setText(pending)
+                    number.setSelection(number.text.length)
+                }
+            } else Toast.makeText(this, "Contacts permission denied; suggestions are disabled.", Toast.LENGTH_SHORT).show()
             103 -> if (granted) { val video = pendingVideoCall; pendingVideoCall = false; placeCall(number.text.toString(), video) } else { pendingVideoCall = false; Toast.makeText(this, "Call permission denied.", Toast.LENGTH_SHORT).show() }
             104 -> if (granted) chooseSimAccount() else Toast.makeText(this, "SIM selection permission denied.", Toast.LENGTH_SHORT).show()
             105 -> if (granted) render() else Toast.makeText(this, "Call history permission denied.", Toast.LENGTH_SHORT).show()
