@@ -145,8 +145,11 @@ class MainActivity : Activity() {
             }
             body.addView(row)
         }
-        body.addView(action("＋  Add contact", false) { try { startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)) } catch (_: Exception) { Toast.makeText(this, "Contacts app unavailable.", Toast.LENGTH_SHORT).show() } }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(5) })
-        body.addView(action("☎  Call", true) { placeCall(number.text.toString()) }, LinearLayout.LayoutParams(-1, dp(60)).apply { topMargin = dp(6) })
+        val callActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0) }
+        callActions.addView(action("＋\nAdd contact", false) { try { startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)) } catch (_: Exception) { Toast.makeText(this, "Contacts app unavailable.", Toast.LENGTH_SHORT).show() } }, LinearLayout.LayoutParams(0, dp(66), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+        callActions.addView(action("☎\nCall", true) { placeCall(number.text.toString()) }, LinearLayout.LayoutParams(0, dp(66), 1.2f).apply { setMargins(dp(3), 0, dp(3), 0) })
+        callActions.addView(action("▣\nVideo call", false) { placeCall(number.text.toString(), true) }, LinearLayout.LayoutParams(0, dp(66), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+        body.addView(callActions)
         body.addView(action("Set as default phone app") { requestDialerRole() }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         body.addView(action("Choose SIM for outgoing calls") { chooseSimAccount() }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
     }
@@ -241,13 +244,16 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun placeCall(raw: String) {
+    private fun placeCall(raw: String, video: Boolean = false) {
         val value = raw.trim()
         if (value.isBlank()) { Toast.makeText(this, "Enter a phone number first.", Toast.LENGTH_SHORT).show(); return }
         if (!isDefaultDialer()) { requestDialerRole(); return }
         if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) { requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), 103); return }
         try {
-            val extras = Bundle().apply { selectedPhoneAccount?.let { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) } }
+            val extras = Bundle().apply {
+                selectedPhoneAccount?.let { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+                if (video) putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, android.telecom.VideoProfile.STATE_BIDIRECTIONAL)
+            }
             (getSystemService(Context.TELECOM_SERVICE) as TelecomManager).placeCall(Uri.fromParts("tel", value, null), extras)
         } catch (e: Exception) { Toast.makeText(this, "Call failed: " + (e.message ?: "unknown error"), Toast.LENGTH_LONG).show() }
     }
