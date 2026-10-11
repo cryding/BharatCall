@@ -330,7 +330,7 @@ class MainActivity : Activity() {
             contactSearchInput = EditText(this).apply {
                 hint = "Search contacts or numbers"
                 textSize = 16f
-                singleLine = true
+                isSingleLine = true
                 setTextColor(ink)
                 setHintTextColor(muted)
                 background = rounded(panel)
