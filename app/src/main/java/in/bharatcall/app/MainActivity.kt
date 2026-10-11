@@ -38,22 +38,22 @@ class MainActivity : Activity() {
     private var selectedPhoneAccount: PhoneAccountHandle? = null
     private var pendingVideoCall = false
     private var contactSearchInput: EditText? = null
-    private var currentTab = "Keypad"
+    private var currentTab = "Recents"
     private val roleRequest = 101
     private val teal = Color.rgb(0, 190, 110)
-    private val ink = Color.rgb(17, 31, 48)
-    private val muted = Color.rgb(91, 108, 127)
-    private val panel = Color.rgb(239, 245, 253)
-    private val bg = Color.rgb(255, 255, 255)
+    private val ink = Color.rgb(235, 240, 247)
+    private val muted = Color.rgb(164, 178, 194)
+    private val panel = Color.rgb(18, 29, 39)
+    private val bg = Color.rgb(5, 14, 21)
     private var tone: ToneGenerator? = null
     private val favorites by lazy { getSharedPreferences("favorites", MODE_PRIVATE) }
     private fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.WHITE
-        window.navigationBarColor = Color.WHITE
-        window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+        window.decorView.systemUiVisibility = 0
         tone = try { ToneGenerator(AudioManager.STREAM_DTMF, 75) } catch (_: Exception) { null }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(12), dp(5)) }
@@ -116,14 +116,16 @@ class MainActivity : Activity() {
         body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(16)) }
         scroll.addView(body)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(6), dp(5), dp(6), dp(5)); setBackgroundColor(Color.rgb(248, 250, 254)) }
-        listOf("Favourites", "Recents", "Keypad", "Contacts").forEach { tab ->
-            val title = when (tab) { "Favourites" -> "☆\nFavourites"; "Recents" -> "◷\nRecents"; "Keypad" -> "▦\nKeypad"; else -> "♙\nContacts" }
-            nav.addView(label(title, 12f, if (tab == currentTab) teal else muted).apply {
-                gravity = Gravity.CENTER; isClickable = true; isFocusable = true
-                background = rounded(if (tab == currentTab) Color.rgb(229, 240, 255) else Color.TRANSPARENT)
+        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(6), dp(5), dp(6), dp(5)); setBackgroundColor(Color.rgb(9, 19, 28)) }
+        listOf("Recents", "Contacts", "Keypad").forEach { tab ->
+            val title = when (tab) { "Recents" -> "◷\\nRecents"; "Contacts" -> "♙\\nContacts"; else -> "▦\\nDial" }
+            nav.addView(label(title, 12f, if (tab == currentTab) Color.WHITE else Color.rgb(177, 192, 207)).apply {
+                gravity = Gravity.CENTER
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                isClickable = true; isFocusable = true
+                background = rounded(if (tab == currentTab) Color.rgb(20, 75, 145) else Color.rgb(17, 27, 37))
                 setOnClickListener { currentTab = tab; render() }
-            }, LinearLayout.LayoutParams(0, dp(56), 1f))
+            }, LinearLayout.LayoutParams(0, dp(62), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
         }
         root.addView(nav)
         setContentView(root)
@@ -163,23 +165,23 @@ class MainActivity : Activity() {
 
     private fun render() {
         body.removeAllViews()
-        val dark = currentTab == "Recents" || currentTab == "Keypad"
+        val dark = true
         val shell = body.parent?.parent as? LinearLayout
-        val screen = if (dark) Color.rgb(5, 14, 21) else Color.WHITE
+        val screen = Color.rgb(5, 14, 21)
         shell?.setBackgroundColor(screen)
         shell?.getChildAt(0)?.setBackgroundColor(screen)
         shell?.getChildAt(1)?.setBackgroundColor(screen)
-        shell?.getChildAt(3)?.setBackgroundColor(if (dark) Color.rgb(9, 19, 28) else Color.rgb(248, 250, 254))
+        shell?.getChildAt(3)?.setBackgroundColor(Color.rgb(9, 19, 28))
         body.setBackgroundColor(screen)
-        status.setTextColor(if (dark) Color.rgb(175, 193, 207) else muted)
+        status.setTextColor(Color.rgb(175, 193, 207))
         status.text = if (isDefaultDialer()) "Default phone app" else ""
         status.visibility = if (isDefaultDialer()) android.view.View.VISIBLE else android.view.View.GONE
         val nav = shell?.getChildAt(3) as? LinearLayout
         nav?.let { bar -> for (i in 0 until bar.childCount) {
             val item = bar.getChildAt(i) as? TextView ?: continue
-            val tab = listOf("Favourites", "Recents", "Keypad", "Contacts").getOrNull(i) ?: continue
-            item.setTextColor(if (tab == currentTab) teal else if (dark) Color.rgb(177, 192, 207) else muted)
-            item.background = rounded(if (tab == currentTab) if (dark) Color.rgb(20, 66, 118) else Color.rgb(229, 240, 255) else Color.TRANSPARENT)
+            val tab = listOf("Recents", "Contacts", "Keypad").getOrNull(i) ?: continue
+            item.setTextColor(if (tab == currentTab) Color.WHITE else Color.rgb(177, 192, 207))
+            item.background = rounded(if (tab == currentTab) Color.rgb(20, 75, 145) else Color.rgb(17, 27, 37))
         } }
         when (currentTab) { "Keypad" -> showKeypad(); "Recents" -> showRecents(); "Contacts" -> showContacts(false); else -> showContacts(true) }
     }
@@ -325,13 +327,13 @@ class MainActivity : Activity() {
     }
 
     private fun showContacts(onlyFavorites: Boolean) {
-        body.addView(label(if (onlyFavorites) "Favourites" else "Contacts", 23f, ink))
+        body.addView(label(if (onlyFavorites) "Favourites" else "Contacts", 23f, Color.rgb(235, 240, 247)))
         if (!onlyFavorites) {
             contactSearchInput = EditText(this).apply {
                 hint = "Search contacts or numbers"
                 textSize = 16f
                 isSingleLine = true
-                setTextColor(ink)
+                setTextColor(Color.rgb(235, 240, 247))
                 setHintTextColor(muted)
                 background = rounded(panel)
                 setPadding(dp(14), dp(4), dp(14), dp(4))
@@ -358,7 +360,7 @@ class MainActivity : Activity() {
         items.forEach { item ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(6), dp(6), dp(6)); background = rounded(panel); tag = (item.first + " " + item.second).lowercase() }
             val detail = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            detail.addView(label(item.first, 16f, ink)); detail.addView(label(item.second, 13f, muted))
+            detail.addView(label(item.first, 16f, Color.rgb(235, 240, 247))); detail.addView(label(item.second, 13f, muted))
             detail.setOnClickListener { currentTab = "Keypad"; render(); number.setText(item.second); number.setSelection(number.text.length) }
             row.addView(detail, LinearLayout.LayoutParams(0, -2, 1f))
             row.addView(action(if (favorites.getBoolean(item.third, false)) "★" else "☆") { favorites.edit().putBoolean(item.third, !favorites.getBoolean(item.third, false)).apply(); render() }, LinearLayout.LayoutParams(dp(48), dp(48)))
@@ -417,9 +419,9 @@ class MainActivity : Activity() {
     }
 
     private fun addCallRow(name: String, phone: String, info: String) {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(8), dp(8), dp(8)); background = rounded(panel) }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(8), dp(8), dp(8)); background = rounded(Color.rgb(17, 29, 39)) }
         val detail = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        detail.addView(label(name, 16f, ink)); detail.addView(label(phone, 13f, muted)); detail.addView(label(info, 12f, if (info.startsWith("Missed")) Color.rgb(255, 100, 110) else muted))
+        detail.addView(label(name, 17f, Color.rgb(239, 243, 249))); detail.addView(label(phone, 13f, Color.rgb(165, 180, 197))); detail.addView(label(info, 12f, if (info.startsWith("Missed")) Color.rgb(255, 91, 105) else if (info.startsWith("Outgoing")) Color.rgb(43, 220, 145) else muted))
         row.addView(detail, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(action("☎", true) { placeCall(phone) }, LinearLayout.LayoutParams(dp(54), dp(48)))
         body.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
