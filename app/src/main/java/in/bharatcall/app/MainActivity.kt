@@ -130,13 +130,14 @@ class MainActivity : Activity() {
         text = if (letters.isBlank()) digit else "$digit\n$letters"
         textSize = 23f
         gravity = Gravity.CENTER
-        setTextColor(ink)
+        setTextColor(Color.rgb(232, 235, 242))
         setLineSpacing(0f, 0.9f)
         typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.rgb(239, 245, 253))
-            setStroke(dp(1), Color.rgb(239, 245, 253))
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(40).toFloat()
+            setColor(Color.rgb(17, 18, 23))
+            setStroke(dp(1), Color.rgb(17, 18, 23))
         }
         isClickable = true
         isFocusable = true
@@ -146,7 +147,7 @@ class MainActivity : Activity() {
 
     private fun render() {
         body.removeAllViews()
-        val dark = currentTab == "Recents"
+        val dark = currentTab == "Recents" || currentTab == "Keypad"
         val shell = body.parent?.parent as? LinearLayout
         val screen = if (dark) Color.rgb(5, 14, 21) else Color.WHITE
         shell?.setBackgroundColor(screen)
@@ -171,12 +172,12 @@ class MainActivity : Activity() {
         number = EditText(this).apply {
             hint = "Enter number"; textSize = 28f; gravity = Gravity.CENTER_VERTICAL
             inputType = android.text.InputType.TYPE_CLASS_PHONE; isSingleLine = true
-            setTextColor(ink); setHintTextColor(muted); background = null
+            setTextColor(Color.rgb(238, 240, 246)); setHintTextColor(Color.rgb(177, 182, 193)); background = null
             setPadding(dp(8), 0, dp(8), 0)
             intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart?.let { setText(it) }
         }
-        val numberRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = rounded(panel); setPadding(dp(12), 0, dp(10), 0) }
-        numberRow.addView(label("🇮🇳  +91", 17f, ink).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-2, dp(56)))
+        val numberRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = rounded(Color.rgb(39, 41, 47)); setPadding(dp(12), 0, dp(10), 0) }
+        numberRow.addView(label("🇮🇳  +91", 17f, Color.rgb(232, 235, 242)).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-2, dp(56)))
         numberRow.addView(number, LinearLayout.LayoutParams(0, dp(56), 1f))
         numberRow.addView(action("⌫", false) { val t = number.text; if (t.isNotEmpty()) t.delete(t.length - 1, t.length) }, LinearLayout.LayoutParams(dp(42), dp(46)))
         body.addView(numberRow, LinearLayout.LayoutParams(-1, dp(60)).apply { bottomMargin = dp(4) })
