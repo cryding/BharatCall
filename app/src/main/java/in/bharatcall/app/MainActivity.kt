@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.BitmapFactory
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -135,14 +136,18 @@ class MainActivity : Activity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(6), dp(5), dp(6), dp(5)); setBackgroundColor(Color.rgb(9, 19, 28)) }
         listOf("Recents", "Contacts", "Keypad").forEach { tab ->
-            val title = when (tab) { "Recents" -> "◷\\nRecents"; "Contacts" -> "♙\\nContacts"; else -> "▦\\nDial" }
-            nav.addView(label(title, 12f, if (tab == currentTab) Color.WHITE else Color.rgb(177, 192, 207)).apply {
+            val iconText = when (tab) { "Recents" -> "◷"; "Contacts" -> "♙"; else -> "▦" }
+            val caption = if (tab == "Keypad") "Dial" else tab
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 isClickable = true; isFocusable = true
                 background = rounded(if (tab == currentTab) Color.rgb(20, 75, 145) else Color.rgb(17, 27, 37))
+                addView(label(iconText, 27f, if (tab == currentTab) Color.rgb(196, 222, 255) else Color.rgb(177, 192, 207)).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, 0) })
+                addView(label(caption, 12f, if (tab == currentTab) Color.WHITE else Color.rgb(177, 192, 207)).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, 0) })
                 setOnClickListener { currentTab = tab; render() }
-            }, LinearLayout.LayoutParams(0, dp(62), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+            }
+            nav.addView(item, LinearLayout.LayoutParams(0, dp(68), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
         }
         root.addView(nav)
         setContentView(root)
@@ -205,10 +210,13 @@ class MainActivity : Activity() {
         }
         val nav = shell?.getChildAt(3) as? LinearLayout
         nav?.let { bar -> for (i in 0 until bar.childCount) {
-            val item = bar.getChildAt(i) as? TextView ?: continue
+            val item = bar.getChildAt(i) as? LinearLayout ?: continue
             val tab = listOf("Recents", "Contacts", "Keypad").getOrNull(i) ?: continue
-            item.setTextColor(if (tab == currentTab) Color.WHITE else Color.rgb(177, 192, 207))
             item.background = rounded(if (tab == currentTab) Color.rgb(20, 75, 145) else Color.rgb(17, 27, 37))
+            for (j in 0 until item.childCount) {
+                val textView = item.getChildAt(j) as? TextView ?: continue
+                textView.setTextColor(if (tab == currentTab) if (j == 0) Color.rgb(196, 222, 255) else Color.WHITE else Color.rgb(177, 192, 207))
+            }
         } }
         when (currentTab) { "Keypad" -> showKeypad(); "Recents" -> showRecents(); "Contacts" -> showContacts(false); else -> showContacts(true) }
     }
@@ -386,6 +394,7 @@ class MainActivity : Activity() {
         val contactRows = mutableListOf<Pair<LinearLayout, Triple<String, String, String>>>()
         items.forEach { item ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(6), dp(6), dp(6)); background = rounded(panel); tag = (item.first + " " + item.second).lowercase() }
+            row.addView(contactAvatar(item.first, item.second, 48))
             val detail = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             detail.addView(label(item.first, 16f, Color.rgb(235, 240, 247))); detail.addView(label(item.second, 13f, muted))
             detail.setOnClickListener { currentTab = "Keypad"; render(); number.setText(item.second); number.setSelection(number.text.length) }
@@ -445,12 +454,52 @@ class MainActivity : Activity() {
             }.show()
     }
 
+    private fun contactAvatar(name: String, phone: String, sizeDp: Int): android.view.View {
+        val size = dp(sizeDp)
+        val frame = android.widget.FrameLayout(this)
+        val image = android.widget.ImageView(this).apply {
+            layoutParams = android.widget.FrameLayout.LayoutParams(size, size)
+            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.rgb(63, 76, 94)) }
+            clipToOutline = true
+            contentDescription = "$name contact photo"
+        }
+        var photoUri: String? = null
+        try {
+            val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phone))
+            contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup.PHOTO_THUMBNAIL_URI), null, null, null)?.use { c ->
+                if (c.moveToFirst()) photoUri = c.getString(0)
+            }
+            if (!photoUri.isNullOrBlank()) contentResolver.openInputStream(Uri.parse(photoUri!!))?.use { input ->
+                BitmapFactory.decodeStream(input)?.let { image.setImageBitmap(it) }
+            }
+        } catch (_: Exception) { }
+        frame.addView(image)
+        if (image.drawable == null) {
+            frame.addView(TextView(this).apply {
+                text = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+                textSize = if (sizeDp >= 48) 23f else 18f
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(220, 229, 241))
+                layoutParams = android.widget.FrameLayout.LayoutParams(size, size)
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.rgb(57, 70, 88)) }
+            })
+        }
+        frame.layoutParams = LinearLayout.LayoutParams(size, size).apply { rightMargin = dp(12) }
+        return frame
+    }
+
     private fun addCallRow(name: String, phone: String, info: String) {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(8), dp(8), dp(8)); background = rounded(Color.rgb(17, 29, 39)) }
+        row.addView(contactAvatar(name, phone, 54))
         val detail = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         detail.addView(label(name, 17f, Color.rgb(239, 243, 249))); detail.addView(label(phone, 13f, Color.rgb(165, 180, 197))); detail.addView(label(info, 12f, if (info.startsWith("Missed")) Color.rgb(255, 91, 105) else if (info.startsWith("Outgoing")) Color.rgb(43, 220, 145) else muted))
         row.addView(detail, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(action("☎", true) { placeCall(phone) }, LinearLayout.LayoutParams(dp(54), dp(48)))
+        row.addView(TextView(this).apply {
+            text = "☎"; textSize = 27f; gravity = Gravity.CENTER; setTextColor(Color.rgb(43, 224, 145))
+            contentDescription = "Call $name"; isClickable = true; isFocusable = true
+            setOnClickListener { placeCall(phone) }
+        }, LinearLayout.LayoutParams(dp(48), dp(52)))
         body.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
     }
 
