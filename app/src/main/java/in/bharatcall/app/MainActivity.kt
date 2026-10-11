@@ -31,6 +31,7 @@ class MainActivity : Activity() {
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
     private var selectedPhoneAccount: PhoneAccountHandle? = null
+    private var pendingVideoCall = false
     private var currentTab = "Keypad"
     private val roleRequest = 101
     private val teal = Color.rgb(0, 190, 110)
@@ -146,9 +147,20 @@ class MainActivity : Activity() {
             body.addView(row)
         }
         val callActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0) }
-        callActions.addView(action("＋\nAdd contact", false) { try { startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)) } catch (_: Exception) { Toast.makeText(this, "Contacts app unavailable.", Toast.LENGTH_SHORT).show() } }, LinearLayout.LayoutParams(0, dp(66), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
-        callActions.addView(action("☎\nCall", true) { placeCall(number.text.toString()) }, LinearLayout.LayoutParams(0, dp(66), 1.2f).apply { setMargins(dp(3), 0, dp(3), 0) })
-        callActions.addView(action("▣\nVideo call", false) { placeCall(number.text.toString(), true) }, LinearLayout.LayoutParams(0, dp(66), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+        fun footerAction(icon: String, caption: String, callback: () -> Unit) = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; isClickable = true; isFocusable = true
+            addView(label(icon, 27f, Color.rgb(15, 93, 218)).apply { gravity = Gravity.CENTER })
+            addView(label(caption, 13f, Color.rgb(15, 93, 218)).apply { gravity = Gravity.CENTER })
+            setOnClickListener { callback() }
+        }
+        callActions.addView(footerAction("♙+", "Add contact") { try { startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)) } catch (_: Exception) { Toast.makeText(this, "Contacts app unavailable.", Toast.LENGTH_SHORT).show() } }, LinearLayout.LayoutParams(0, dp(78), 1f))
+        callActions.addView(TextView(this).apply {
+            text = "☎"; textSize = 34f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.rgb(0, 190, 80)) }
+            isClickable = true; isFocusable = true; contentDescription = "Call"
+            setOnClickListener { placeCall(number.text.toString()) }
+        }, LinearLayout.LayoutParams(dp(86), dp(86)).apply { setMargins(dp(8), 0, dp(8), 0) })
+        callActions.addView(footerAction("▣", "Video call") { placeCall(number.text.toString(), true) }, LinearLayout.LayoutParams(0, dp(78), 1f))
         body.addView(callActions)
         if (!isDefaultDialer()) body.addView(action("Set as default phone app  ›") { requestDialerRole() }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
         body.addView(action("Choose SIM for outgoing calls") { chooseSimAccount() }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
@@ -248,7 +260,7 @@ class MainActivity : Activity() {
         val value = raw.trim()
         if (value.isBlank()) { Toast.makeText(this, "Enter a phone number first.", Toast.LENGTH_SHORT).show(); return }
         if (!isDefaultDialer()) { requestDialerRole(); return }
-        if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) { requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), 103); return }
+        if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) { pendingVideoCall = video; requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), 103); return }
         try {
             val extras = Bundle().apply {
                 selectedPhoneAccount?.let { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
@@ -276,7 +288,7 @@ class MainActivity : Activity() {
         val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
         when (requestCode) {
             102 -> if (granted) render() else Toast.makeText(this, "Contacts permission denied.", Toast.LENGTH_SHORT).show()
-            103 -> if (granted) placeCall(number.text.toString()) else Toast.makeText(this, "Call permission denied.", Toast.LENGTH_SHORT).show()
+            103 -> if (granted) { val video = pendingVideoCall; pendingVideoCall = false; placeCall(number.text.toString(), video) } else { pendingVideoCall = false; Toast.makeText(this, "Call permission denied.", Toast.LENGTH_SHORT).show() }
             104 -> if (granted) chooseSimAccount() else Toast.makeText(this, "SIM selection permission denied.", Toast.LENGTH_SHORT).show()
             105 -> if (granted) render() else Toast.makeText(this, "Call history permission denied.", Toast.LENGTH_SHORT).show()
         }
