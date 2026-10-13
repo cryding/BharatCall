@@ -71,7 +71,7 @@ class SettingsActivity : Activity() {
         section("AI Intelligence")
         item("✦", "Gemini API key", "Encrypted on this device", action = { editGeminiKey() })
         item("⇄", "AI telephony backend URL", "Configure HTTPS API endpoint", action = { editTelephonyBackendUrl() })
-        item("⌁", "Test telephony backend", "Checks health only; does not place calls", action = { testTelephonyBackend() })
+        item("⌁", "Test telephony backend", "Checks health and reports capabilities", action = { testTelephonyBackend() })
         item("↗", "Test Gemini connection", "Check the saved key with a minimal request", action = { testGeminiConnection() })
         item("◉", "AI incoming-call assistant", "Experimental • not active for carrier calls", action = {
             info("AI incoming-call assistant", "BharatCall cannot yet stream cellular call audio to Gemini or inject AI speech into a live carrier call. Android restricts third-party access to call audio. This option is informational only; no calls are automatically answered by AI. The Gemini key is used only when you test the connection.")
@@ -121,8 +121,8 @@ class SettingsActivity : Activity() {
             .setPositiveButton("Save URL") { _, _ ->
                 val value = input.text.toString().trim().trimEnd('/')
                 val uri = try { Uri.parse(value) } catch (_: Exception) { null }
-                if (uri == null || uri.scheme != "https" || uri.host.isNullOrBlank()) {
-                    info("Invalid backend URL", "Use a valid HTTPS URL, for example https://api.example.com")
+                if (uri == null || uri.scheme != "https" || uri.host.isNullOrBlank() || !uri.userInfo.isNullOrBlank()) {
+                    info("Invalid backend URL", "Use a valid HTTPS URL without username/password, for example https://api.example.com")
                 } else {
                     prefs.edit().putString("base_url", value).apply()
                     Toast.makeText(this, "Backend URL saved on this device.", Toast.LENGTH_SHORT).show()
@@ -142,6 +142,11 @@ class SettingsActivity : Activity() {
             info("Telephony backend", "Set the HTTPS backend URL first in Settings → AI telephony backend URL.")
             return
         }
+        val parsed = try { Uri.parse(baseUrl) } catch (_: Exception) { null }
+        if (parsed == null || parsed.scheme != "https" || parsed.host.isNullOrBlank() || !parsed.userInfo.isNullOrBlank()) {
+            info("Telephony backend", "The saved URL is invalid. Save a valid HTTPS URL first.")
+            return
+        }
         Toast.makeText(this, "Checking backend health…", Toast.LENGTH_SHORT).show()
         Thread {
             var result = "Could not reach the backend. Check the URL and internet connection."
@@ -151,6 +156,7 @@ class SettingsActivity : Activity() {
                     requestMethod = "GET"
                     connectTimeout = 8000
                     readTimeout = 8000
+                    instanceFollowRedirects = false
                     setRequestProperty("Accept", "application/json")
                 }
                 val code = connection.responseCode
@@ -159,20 +165,28 @@ class SettingsActivity : Activity() {
                     val data = JSONObject(response)
                     val ok = data.optBoolean("ok", false)
                     val connected = data.optBoolean("telephonyConnected", false)
-                    result = if (ok && !connected) {
-                        "Backend health check passed. Telephony provider/media is NOT connected; no AI phone calls can be made yet."
-                    } else if (ok && connected) {
-                        "Backend responded, but this health response alone does not verify a live call or bidirectional media connection."
+                    val mode = data.optString("mode", "unknown")
+                    val requestId = data.optString("requestId", connection.getHeaderField("X-Request-Id").orEmpty())
+                    val capabilities = data.optJSONObject("capabilities")
+                    val capabilitySummary = if (capabilities != null) {
+                        "\nCapabilities: carrier calls=${capabilities.optBoolean("carrierCalls", false)}, live audio=${capabilities.optBoolean("liveAudio", false)}, AI speech=${capabilities.optBoolean("aiSpeech", false)}, human handoff=${capabilities.optBoolean("humanHandoff", false)}."
                     } else {
-                        "Backend responded, but its health payload was not recognized."
+                        "\nCapabilities are not reported by this server version."
+                    }
+                    result = if (ok && !connected) {
+                        "Health check PASSED. Mode: $mode. Telephony provider/media is NOT connected; no AI phone calls can be made yet.$capabilitySummary\nRequest ID: ${requestId.ifBlank { "not supplied" }}"
+                    } else if (ok && connected) {
+                        "Backend responded, but this health response alone does not verify a live call or bidirectional media connection. Mode: $mode.$capabilitySummary\nRequest ID: ${requestId.ifBlank { "not supplied" }}"
+                    } else {
+                        "Backend responded, but its health payload was not recognized (HTTP $code).\nRequest ID: ${requestId.ifBlank { "not supplied" }}"
                     }
                 } else {
-                    result = "Backend health check failed (HTTP $code)."
+                    result = "Backend health check failed (HTTP $code). Request ID: ${connection.getHeaderField("X-Request-Id").orEmpty().ifBlank { "not supplied" }}"
                 }
             } catch (_: Exception) {
-                result = "Could not reach the backend. Confirm it is deployed with HTTPS and /health is publicly reachable."
+                result = "Could not reach the backend. Confirm it is deployed with HTTPS and /health is publicly reachable. If Render just deployed or woke from sleep, wait and retry."
             } finally { connection?.disconnect() }
-            runOnUiThread { info("Telephony backend check", result) }
+            runOnUiThread { info("Telephony backend diagnostics", result) }
         }.start()
     }
 
