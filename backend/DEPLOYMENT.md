@@ -2,6 +2,8 @@
 
 This is an optional deployment path for testing the API URL and Android health-check UI. It does not provide AI phone calls, SIP/PSTN, or live audio. Render's free service can sleep when idle; startup may be delayed.
 
+**Phone-only Bengali walkthrough:** see [RENDER_PHONE_GUIDE_BN.md](./RENDER_PHONE_GUIDE_BN.md). No terminal commands are required.
+
 ## Deploy
 
 1. Open the repository's [Render Blueprint](https://render.com/docs/blueprint-spec) workflow and connect `cryding/BharatCall`.
@@ -9,7 +11,7 @@ This is an optional deployment path for testing the API URL and Android health-c
 3. Review `render.yaml`. Keep the plan at `free`; do not upgrade or enable paid billing.
 4. When prompted for `BHARATCALL_API_TOKEN`, generate a random secret with at least 32 characters and enter it as a private environment variable. Do not put the token in GitHub, a URL, screenshots, or the Android APK.
 5. Deploy and wait until Render reports the service healthy.
-6. Open `https://YOUR-SERVICE.onrender.com/health`. A valid response should include `"ok":true` and `"telephonyConnected":false`.
+6. Open `https://YOUR-SERVICE.onrender.com/health`. A valid response should include `\"ok\":true` and `\"telephonyConnected\":false`.
 7. In BharatCall → Settings → AI telephony backend URL, save the HTTPS service URL and use Test telephony backend.
 
 ## Important security limitation
