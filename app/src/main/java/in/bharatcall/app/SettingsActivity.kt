@@ -237,7 +237,7 @@ class SettingsActivity : Activity() {
             var result = "Gemini request failed. Check internet access, API key and Google AI Studio quota."
             var connection: HttpURLConnection? = null
             try {
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 12000
@@ -253,10 +253,18 @@ class SettingsActivity : Activity() {
                     val reply = JSONObject(body).optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text").orEmpty()
                     result = if (reply.isNotBlank()) "Connection successful. Gemini replied: " + reply.take(180) else "Connection successful. Gemini returned a valid response."
                 } else {
+                    val errorBody = try {
+                        (connection.errorStream ?: connection.inputStream).bufferedReader().use { it.readText() }
+                    } catch (_: Exception) { "" }
+                    val apiMessage = try {
+                        JSONObject(errorBody).optJSONObject("error")?.optString("message").orEmpty()
+                    } catch (_: Exception) { "" }
                     result = when (code) {
-                        400, 401, 403 -> "Google rejected the request (HTTP " + code + "). Check the key and Gemini API access."
-                        429 -> "Google quota/rate limit reached (HTTP 429). Check AI Studio quota and billing settings."
-                        else -> "Gemini request failed (HTTP " + code + ")."
+                        400 -> "Gemini rejected the request (HTTP 400). " + apiMessage.take(220)
+                        401, 403 -> "Google rejected the API key or access (HTTP " + code + "). " + apiMessage.take(180)
+                        404 -> "Gemini model/endpoint was not found or is unavailable to this API key (HTTP 404). This build now tests gemini-3.8-flash. " + apiMessage.take(180)
+                        429 -> "Google quota/rate limit reached (HTTP 429). Check the model's free-tier availability and AI Studio quota. " + apiMessage.take(180)
+                        else -> "Gemini request failed (HTTP " + code + "). " + apiMessage.take(180)
                     }
                 }
             } catch (_: Exception) {
