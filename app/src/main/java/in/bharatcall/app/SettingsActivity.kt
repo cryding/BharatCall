@@ -6,6 +6,17 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import android.widget.EditText
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
@@ -57,6 +68,12 @@ class SettingsActivity : Activity() {
             row.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
             list.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(3) })
         }
+        section("AI Intelligence")
+        item("✦", "Gemini API key", "Encrypted on this device", action = { editGeminiKey() })
+        item("↗", "Test Gemini connection", "Check the saved key with a minimal request", action = { testGeminiConnection() })
+        item("◉", "AI incoming-call assistant", "Experimental • not active for carrier calls", action = {
+            info("AI incoming-call assistant", "BharatCall cannot yet stream cellular call audio to Gemini or inject AI speech into a live carrier call. Android restricts third-party access to call audio. This option is informational only; no calls are automatically answered by AI. The Gemini key is used only when you test the connection.")
+        })
         section("Call Assist")
         item("⬡", "Caller ID and spam", action = { info("Caller ID and spam", "Saved contacts are searched on-device. Online caller-ID and spam detection are not configured in this build yet.") })
         section("General")
@@ -82,6 +99,115 @@ class SettingsActivity : Activity() {
             view.setPadding(0, top, 0, bottom)
             insets
         }
+    }
+
+    private fun editGeminiKey() {
+        val input = EditText(this).apply {
+            hint = "Paste Gemini API key"
+            isSingleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setTextColor(this@SettingsActivity.text)
+            setHintTextColor(muted)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        }
+        val existing = try { readEncryptedKey() } catch (_: Exception) { "" }
+        input.setText(existing)
+        AlertDialog.Builder(this)
+            .setTitle("Gemini API key")
+            .setMessage("Your key is encrypted using Android Keystore and stored only on this device. Never share it or commit it to GitHub.")
+            .setView(input)
+            .setPositiveButton("Save securely") { _, _ ->
+                val key = input.text.toString().trim()
+                if (key.isBlank()) {
+                    Toast.makeText(this, "API key is empty. Nothing saved.", Toast.LENGTH_LONG).show()
+                } else {
+                    try {
+                        saveEncryptedKey(key)
+                        Toast.makeText(this, "Gemini key saved encrypted on this device.", Toast.LENGTH_LONG).show()
+                    } catch (_: Exception) {
+                        Toast.makeText(this, "Could not securely save the key on this device.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            .setNeutralButton("Remove key") { _, _ ->
+                getSharedPreferences("gemini_secure", MODE_PRIVATE).edit().remove("key_blob").apply()
+                Toast.makeText(this, "Saved Gemini key removed.", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun testGeminiConnection() {
+        val key = try { readEncryptedKey() } catch (_: Exception) { "" }
+        if (key.isBlank()) {
+            info("Gemini connection", "Add your Gemini API key first in Settings → Gemini API key.")
+            return
+        }
+        Toast.makeText(this, "Testing Gemini connection…", Toast.LENGTH_SHORT).show()
+        Thread {
+            var result = "Gemini request failed. Check internet access, API key and Google AI Studio quota."
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
+                connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 12000
+                    readTimeout = 12000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                }
+                val payload = JSONObject().put("contents", org.json.JSONArray().put(JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", "Reply with exactly: BharatCall Gemini connection OK")))))
+                connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+                val code = connection.responseCode
+                if (code in 200..299) {
+                    val body = connection.inputStream.bufferedReader().use { it.readText() }
+                    val reply = JSONObject(body).optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text").orEmpty()
+                    result = if (reply.isNotBlank()) "Connection successful. Gemini replied: " + reply.take(180) else "Connection successful. Gemini returned a valid response."
+                } else {
+                    result = when (code) {
+                        400, 401, 403 -> "Google rejected the request (HTTP " + code + "). Check the key and Gemini API access."
+                        429 -> "Google quota/rate limit reached (HTTP 429). Check AI Studio quota and billing settings."
+                        else -> "Gemini request failed (HTTP " + code + ")."
+                    }
+                }
+            } catch (_: Exception) {
+                result = "Could not reach Gemini. Check internet access and try again."
+            } finally { connection?.disconnect() }
+            runOnUiThread { info("Gemini connection test", result) }
+        }.start()
+    }
+
+    private fun saveEncryptedKey(value: String) {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+        val encrypted = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+        val blob = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(encrypted, Base64.NO_WRAP)
+        getSharedPreferences("gemini_secure", MODE_PRIVATE).edit().putString("key_blob", blob).apply()
+    }
+
+    private fun readEncryptedKey(): String {
+        val blob = getSharedPreferences("gemini_secure", MODE_PRIVATE).getString("key_blob", null) ?: return ""
+        val parts = blob.split(":", limit = 2)
+        if (parts.size != 2) return ""
+        val iv = Base64.decode(parts[0], Base64.NO_WRAP)
+        val encrypted = Base64.decode(parts[1], Base64.NO_WRAP)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, getOrCreateSecretKey(), GCMParameterSpec(128, iv))
+        return String(cipher.doFinal(encrypted), Charsets.UTF_8)
+    }
+
+    private fun getOrCreateSecretKey(): SecretKey {
+        val store = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val alias = "bharatcall_gemini_key_encryption"
+        val existing = store.getKey(alias, null) as? SecretKey
+        if (existing != null) return existing
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setRandomizedEncryptionRequired(true)
+            .build())
+        return generator.generateKey()
     }
 
     private fun info(title: String, message: String) {
