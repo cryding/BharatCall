@@ -2,7 +2,7 @@ name: Android debug APK
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, ai-telephony-bridge]
   pull_request:
   workflow_dispatch:
 
@@ -15,6 +15,16 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Set up Node.js for telephony API tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Test telephony API scaffold
+        working-directory: backend
+        run: |
+          npm test
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
