@@ -1,0 +1,12 @@
+{
+  "name": "bharatcall-ai-telephony-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Provider-neutral API scaffold for BharatCall AI telephony; mock mode never places calls.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}
