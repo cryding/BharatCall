@@ -1,5 +1,7 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const json = (res, status, body) => {
   res.writeHead(status, {
@@ -98,7 +100,7 @@ export function createApp({ token = process.env.BHARATCALL_API_TOKEN, mode = pro
   return server;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const port = Number(process.env.PORT || 8080);
   const server = createApp();
   server.listen(port, "0.0.0.0", () => {
