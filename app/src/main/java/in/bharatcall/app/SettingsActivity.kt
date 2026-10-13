@@ -70,6 +70,8 @@ class SettingsActivity : Activity() {
         }
         section("AI Intelligence")
         item("✦", "Gemini API key", "Encrypted on this device", action = { editGeminiKey() })
+        item("⇄", "AI telephony backend URL", "Configure HTTPS API endpoint", action = { editTelephonyBackendUrl() })
+        item("⌁", "Test telephony backend", "Checks health only; does not place calls", action = { testTelephonyBackend() })
         item("↗", "Test Gemini connection", "Check the saved key with a minimal request", action = { testGeminiConnection() })
         item("◉", "AI incoming-call assistant", "Experimental • not active for carrier calls", action = {
             info("AI incoming-call assistant", "BharatCall cannot yet stream cellular call audio to Gemini or inject AI speech into a live carrier call. Android restricts third-party access to call audio. This option is informational only; no calls are automatically answered by AI. The Gemini key is used only when you test the connection.")
@@ -99,6 +101,79 @@ class SettingsActivity : Activity() {
             view.setPadding(0, top, 0, bottom)
             insets
         }
+    }
+
+    private fun editTelephonyBackendUrl() {
+        val prefs = getSharedPreferences("ai_telephony", MODE_PRIVATE)
+        val input = EditText(this).apply {
+            hint = "https://your-backend.example"
+            isSingleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setTextColor(this@SettingsActivity.text)
+            setHintTextColor(muted)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setText(prefs.getString("base_url", "") ?: "")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("AI telephony backend")
+            .setMessage("Enter your deployed HTTPS backend URL without a trailing slash. This saves only the URL. It does not connect a carrier call or stream call audio.")
+            .setView(input)
+            .setPositiveButton("Save URL") { _, _ ->
+                val value = input.text.toString().trim().trimEnd('/')
+                val uri = try { Uri.parse(value) } catch (_: Exception) { null }
+                if (uri == null || uri.scheme != "https" || uri.host.isNullOrBlank()) {
+                    info("Invalid backend URL", "Use a valid HTTPS URL, for example https://api.example.com")
+                } else {
+                    prefs.edit().putString("base_url", value).apply()
+                    Toast.makeText(this, "Backend URL saved on this device.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNeutralButton("Clear") { _, _ ->
+                prefs.edit().remove("base_url").apply()
+                Toast.makeText(this, "Backend URL removed.", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun testTelephonyBackend() {
+        val baseUrl = getSharedPreferences("ai_telephony", MODE_PRIVATE).getString("base_url", "").orEmpty().trim().trimEnd('/')
+        if (baseUrl.isBlank()) {
+            info("Telephony backend", "Set the HTTPS backend URL first in Settings → AI telephony backend URL.")
+            return
+        }
+        Toast.makeText(this, "Checking backend health…", Toast.LENGTH_SHORT).show()
+        Thread {
+            var result = "Could not reach the backend. Check the URL and internet connection."
+            var connection: HttpURLConnection? = null
+            try {
+                connection = (URL("$baseUrl/health").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    setRequestProperty("Accept", "application/json")
+                }
+                val code = connection.responseCode
+                if (code in 200..299) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val data = JSONObject(response)
+                    val ok = data.optBoolean("ok", false)
+                    val connected = data.optBoolean("telephonyConnected", false)
+                    result = if (ok && !connected) {
+                        "Backend health check passed. Telephony provider/media is NOT connected; no AI phone calls can be made yet."
+                    } else if (ok && connected) {
+                        "Backend responded, but this health response alone does not verify a live call or bidirectional media connection."
+                    } else {
+                        "Backend responded, but its health payload was not recognized."
+                    }
+                } else {
+                    result = "Backend health check failed (HTTP $code)."
+                }
+            } catch (_: Exception) {
+                result = "Could not reach the backend. Confirm it is deployed with HTTPS and /health is publicly reachable."
+            } finally { connection?.disconnect() }
+            runOnUiThread { info("Telephony backend check", result) }
+        }.start()
     }
 
     private fun editGeminiKey() {
