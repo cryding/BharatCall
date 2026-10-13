@@ -237,13 +237,14 @@ class SettingsActivity : Activity() {
             var result = "Gemini request failed. Check internet access, API key and Google AI Studio quota."
             var connection: HttpURLConnection? = null
             try {
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent")
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 12000
                     readTimeout = 12000
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    setRequestProperty("x-goog-api-key", key)
                 }
                 val payload = JSONObject().put("contents", org.json.JSONArray().put(JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", "Reply with exactly: BharatCall Gemini connection OK")))))
                 connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
@@ -264,6 +265,7 @@ class SettingsActivity : Activity() {
                         401, 403 -> "Google rejected the API key or access (HTTP " + code + "). " + apiMessage.take(180)
                         404 -> "Gemini model/endpoint was not found or is unavailable to this API key (HTTP 404). This build now tests gemini-3.8-flash. " + apiMessage.take(180)
                         429 -> "Google quota/rate limit reached (HTTP 429). Check the model's free-tier availability and AI Studio quota. " + apiMessage.take(180)
+                        503 -> "Gemini is temporarily overloaded (HTTP 503). This is a Google-side availability issue, not necessarily a bad API key. Wait a few minutes and retry; no paid fallback was enabled. " + apiMessage.take(140)
                         else -> "Gemini request failed (HTTP " + code + "). " + apiMessage.take(180)
                     }
                 }
