@@ -70,7 +70,10 @@ class SettingsActivity : Activity() {
         }
         section("AI Intelligence")
         item("✦", "Gemini API key", "Encrypted on this device", action = { editGeminiKey() })
+        item("⇄", "AI telephony backend URL", "Configure HTTPS API endpoint", action = { editTelephonyBackendUrl() })
+        item("⌁", "Test telephony backend", "Checks health and reports capabilities", action = { testTelephonyBackend() })
         item("↗", "Test Gemini connection", "Check the saved key with a minimal request", action = { testGeminiConnection() })
+        item("🎙", "AI voice conversation", "Speak and hear Gemini inside BharatCall", action = { startActivity(Intent(this, AiVoiceActivity::class.java)) })
         item("◉", "AI incoming-call assistant", "Experimental • not active for carrier calls", action = {
             info("AI incoming-call assistant", "BharatCall cannot yet stream cellular call audio to Gemini or inject AI speech into a live carrier call. Android restricts third-party access to call audio. This option is informational only; no calls are automatically answered by AI. The Gemini key is used only when you test the connection.")
         })
@@ -99,6 +102,93 @@ class SettingsActivity : Activity() {
             view.setPadding(0, top, 0, bottom)
             insets
         }
+    }
+
+    private fun editTelephonyBackendUrl() {
+        val prefs = getSharedPreferences("ai_telephony", MODE_PRIVATE)
+        val input = EditText(this).apply {
+            hint = "https://your-backend.example"
+            isSingleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setTextColor(this@SettingsActivity.text)
+            setHintTextColor(muted)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setText(prefs.getString("base_url", "") ?: "")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("AI telephony backend")
+            .setMessage("Enter your deployed HTTPS backend URL without a trailing slash. This saves only the URL. It does not connect a carrier call or stream call audio.")
+            .setView(input)
+            .setPositiveButton("Save URL") { _, _ ->
+                val value = input.text.toString().trim().trimEnd('/')
+                val uri = try { Uri.parse(value) } catch (_: Exception) { null }
+                if (uri == null || uri.scheme != "https" || uri.host.isNullOrBlank() || !uri.userInfo.isNullOrBlank()) {
+                    info("Invalid backend URL", "Use a valid HTTPS URL without username/password, for example https://api.example.com")
+                } else {
+                    prefs.edit().putString("base_url", value).apply()
+                    Toast.makeText(this, "Backend URL saved on this device.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNeutralButton("Clear") { _, _ ->
+                prefs.edit().remove("base_url").apply()
+                Toast.makeText(this, "Backend URL removed.", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun testTelephonyBackend() {
+        val baseUrl = getSharedPreferences("ai_telephony", MODE_PRIVATE).getString("base_url", "").orEmpty().trim().trimEnd('/')
+        if (baseUrl.isBlank()) {
+            info("Telephony backend", "Set the HTTPS backend URL first in Settings → AI telephony backend URL.")
+            return
+        }
+        val parsed = try { Uri.parse(baseUrl) } catch (_: Exception) { null }
+        if (parsed == null || parsed.scheme != "https" || parsed.host.isNullOrBlank() || !parsed.userInfo.isNullOrBlank()) {
+            info("Telephony backend", "The saved URL is invalid. Save a valid HTTPS URL first.")
+            return
+        }
+        Toast.makeText(this, "Checking backend health…", Toast.LENGTH_SHORT).show()
+        Thread {
+            var result = "Could not reach the backend. Check the URL and internet connection."
+            var connection: HttpURLConnection? = null
+            try {
+                connection = (URL("$baseUrl/health").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    instanceFollowRedirects = false
+                    setRequestProperty("Accept", "application/json")
+                }
+                val code = connection.responseCode
+                if (code in 200..299) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val data = JSONObject(response)
+                    val ok = data.optBoolean("ok", false)
+                    val connected = data.optBoolean("telephonyConnected", false)
+                    val mode = data.optString("mode", "unknown")
+                    val requestId = data.optString("requestId", connection.getHeaderField("X-Request-Id").orEmpty())
+                    val capabilities = data.optJSONObject("capabilities")
+                    val capabilitySummary = if (capabilities != null) {
+                        "\nCapabilities: carrier calls=${capabilities.optBoolean("carrierCalls", false)}, live audio=${capabilities.optBoolean("liveAudio", false)}, AI speech=${capabilities.optBoolean("aiSpeech", false)}, human handoff=${capabilities.optBoolean("humanHandoff", false)}."
+                    } else {
+                        "\nCapabilities are not reported by this server version."
+                    }
+                    result = if (ok && !connected) {
+                        "Health check PASSED. Mode: $mode. Telephony provider/media is NOT connected; no AI phone calls can be made yet.$capabilitySummary\nRequest ID: ${requestId.ifBlank { "not supplied" }}"
+                    } else if (ok && connected) {
+                        "Backend responded, but this health response alone does not verify a live call or bidirectional media connection. Mode: $mode.$capabilitySummary\nRequest ID: ${requestId.ifBlank { "not supplied" }}"
+                    } else {
+                        "Backend responded, but its health payload was not recognized (HTTP $code).\nRequest ID: ${requestId.ifBlank { "not supplied" }}"
+                    }
+                } else {
+                    result = "Backend health check failed (HTTP $code). Request ID: ${connection.getHeaderField("X-Request-Id").orEmpty().ifBlank { "not supplied" }}"
+                }
+            } catch (_: Exception) {
+                result = "Could not reach the backend. Confirm it is deployed with HTTPS and /health is publicly reachable. If Render just deployed or woke from sleep, wait and retry."
+            } finally { connection?.disconnect() }
+            runOnUiThread { info("Telephony backend diagnostics", result) }
+        }.start()
     }
 
     private fun editGeminiKey() {
@@ -148,13 +238,14 @@ class SettingsActivity : Activity() {
             var result = "Gemini request failed. Check internet access, API key and Google AI Studio quota."
             var connection: HttpURLConnection? = null
             try {
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent")
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 12000
                     readTimeout = 12000
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    setRequestProperty("x-goog-api-key", key)
                 }
                 val payload = JSONObject().put("contents", org.json.JSONArray().put(JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", "Reply with exactly: BharatCall Gemini connection OK")))))
                 connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
@@ -164,10 +255,19 @@ class SettingsActivity : Activity() {
                     val reply = JSONObject(body).optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text").orEmpty()
                     result = if (reply.isNotBlank()) "Connection successful. Gemini replied: " + reply.take(180) else "Connection successful. Gemini returned a valid response."
                 } else {
+                    val errorBody = try {
+                        (connection.errorStream ?: connection.inputStream).bufferedReader().use { it.readText() }
+                    } catch (_: Exception) { "" }
+                    val apiMessage = try {
+                        JSONObject(errorBody).optJSONObject("error")?.optString("message").orEmpty()
+                    } catch (_: Exception) { "" }
                     result = when (code) {
-                        400, 401, 403 -> "Google rejected the request (HTTP " + code + "). Check the key and Gemini API access."
-                        429 -> "Google quota/rate limit reached (HTTP 429). Check AI Studio quota and billing settings."
-                        else -> "Gemini request failed (HTTP " + code + ")."
+                        400 -> "Gemini rejected the request (HTTP 400). " + apiMessage.take(220)
+                        401, 403 -> "Google rejected the API key or access (HTTP " + code + "). " + apiMessage.take(180)
+                        404 -> "Gemini model/endpoint was not found or is unavailable to this API key (HTTP 404). This build now tests gemini-3.8-flash. " + apiMessage.take(180)
+                        429 -> "Google quota/rate limit reached (HTTP 429). Check the model's free-tier availability and AI Studio quota. " + apiMessage.take(180)
+                        503 -> "Gemini is temporarily overloaded (HTTP 503). This is a Google-side availability issue, not necessarily a bad API key. Wait a few minutes and retry; no paid fallback was enabled. " + apiMessage.take(140)
+                        else -> "Gemini request failed (HTTP " + code + "). " + apiMessage.take(180)
                     }
                 }
             } catch (_: Exception) {

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: bharatcall-telephony-mock
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: TELEPHONY_MODE
+        value: mock
+      - key: BHARATCALL_API_TOKEN
+        sync: false
