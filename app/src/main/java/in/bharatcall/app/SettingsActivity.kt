@@ -73,6 +73,7 @@ class SettingsActivity : Activity() {
         item("⇄", "AI telephony backend URL", "Configure HTTPS API endpoint", action = { editTelephonyBackendUrl() })
         item("⌁", "Test telephony backend", "Checks health and reports capabilities", action = { testTelephonyBackend() })
         item("↗", "Test Gemini connection", "Check the saved key with a minimal request", action = { testGeminiConnection() })
+        item("🎙", "AI voice conversation", "Speak and hear Gemini inside BharatCall", action = { startActivity(Intent(this, AiVoiceActivity::class.java)) })
         item("◉", "AI incoming-call assistant", "Experimental • not active for carrier calls", action = {
             info("AI incoming-call assistant", "BharatCall cannot yet stream cellular call audio to Gemini or inject AI speech into a live carrier call. Android restricts third-party access to call audio. This option is informational only; no calls are automatically answered by AI. The Gemini key is used only when you test the connection.")
         })
